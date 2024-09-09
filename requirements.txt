@@ -1,0 +1,6 @@
+ffmpeg-python
+moviepy
+numpy
+pandas
+matplotlib
+bagpy
