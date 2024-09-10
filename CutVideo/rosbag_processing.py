@@ -1,9 +1,9 @@
 import os
 import pandas as pd
+import numpy as np
 from bagpy import bagreader
 from config import TIMEFRAMES, WINDOW_SIZE, THRESHOLD_PERCENTAGE
 from datetime import datetime
-
 
 def convert_to_timestamp(time_str, reference_date='2021-09-28'):
     datetime_str = f"{reference_date} {time_str}"
@@ -32,6 +32,8 @@ def process_rosbag_files(rosbag_folder):
     window_size = WINDOW_SIZE
     threshold_missing = THRESHOLD_PERCENTAGE / 100.0 * window_size
 
+    all_timestamps = []
+    all_transforms = []
     for rosbag_file in os.listdir(rosbag_folder):
         if rosbag_file.endswith(".bag"):
             rosbag_path = os.path.join(rosbag_folder, rosbag_file)
@@ -40,45 +42,47 @@ def process_rosbag_files(rosbag_folder):
             ar_tracking_data = b.message_by_topic('/ARTracking')
             if ar_tracking_data:
                 ar_tracking_df = pd.read_csv(ar_tracking_data)
+                ar_tracking_df = ar_tracking_df[ar_tracking_df['header.frame_id'] == 'telescopeMarkerTransform']
+
                 timestamps = ar_tracking_df['Time'].astype(float).values
+                transforms = ar_tracking_df['pose.position.x'].values
 
+                all_timestamps.extend(timestamps)
+                all_transforms.extend(transforms)
+
+    # across combined data
+    start_timestamp = None
+    for i in range(len(all_timestamps) - window_size + 1):
+        window_data = np.array(all_transforms[i:i + window_size])
+        missing_count = np.sum(window_data == 0)
+
+        if missing_count >= threshold_missing:
+            if start_timestamp is None:
+                start_timestamp = all_timestamps[i]
+        else:
+            if start_timestamp is not None:
+                end_timestamp = all_timestamps[i + window_size - 1]
+                if (is_within_timeframes(start_timestamp, timeframes) and
+                        is_within_timeframes(end_timestamp, timeframes)):
+                    segments.append((start_timestamp, end_timestamp, "merged"))
                 start_timestamp = None
-                for i in range(len(timestamps) - window_size + 1):
-                    window_data = ar_tracking_df['pose.position.x'].iloc[i:i+window_size]
-                    missing_count = window_data.eq(0).sum()
 
-                    if missing_count >= threshold_missing:
-                        if start_timestamp is None:
-                            start_timestamp = timestamps[i]
-                    else:
-                        if start_timestamp is not None:
-                            end_timestamp = timestamps[i + window_size - 1]
-                            if (is_within_timeframes(start_timestamp, timeframes) and
-                                    is_within_timeframes(end_timestamp, timeframes)):
-                                segments.append((start_timestamp, end_timestamp, rosbag_file))
-                            start_timestamp = None
+    # Handle case where last segment extends to end
+    if start_timestamp is not None:
+        end_timestamp = all_timestamps[-1]
+        if is_within_timeframes(start_timestamp, timeframes):
+            segments.append((start_timestamp, end_timestamp, "merged"))
 
-                # Handle case where file ends with valid segment
-                if start_timestamp is not None:
-                    end_timestamp = timestamps[-1]
-                    if is_within_timeframes(start_timestamp, timeframes):
-                        segments.append((start_timestamp, end_timestamp, rosbag_file))
-
-    # Merge consecutive segments
     merged_segments = []
     previous_segment = None
 
     for segment in segments:
-        if previous_segment:
-            if segment[0] <= previous_segment[1] + 2:  # Allow small gap between segments
-                merged_segments[-1] = (previous_segment[0], segment[1], segment[2])
-            else:
-                merged_segments.append(segment)
+        if previous_segment and segment[0] <= previous_segment[1] + 1:
+            merged_segments[-1] = (previous_segment[0], segment[1], "merged")
         else:
             merged_segments.append(segment)
         previous_segment = segment
 
-    # Debugging
-    # print(f"Final merged segments to cut: {merged_segments}")
+    print(f"Final segments to cut: {merged_segments}")
 
     return merged_segments

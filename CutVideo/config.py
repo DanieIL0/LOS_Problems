@@ -1,10 +1,10 @@
 import os
 
 # for a segment in sec
-MIN_DURATION = 1.0
+MIN_DURATION = 2
 
-# For missing transformations in sequence
-THRESHOLD_PERCENTAGE = 50
+# For missing transformations in segment
+THRESHOLD_PERCENTAGE = 80
 
 WINDOW_SIZE = 60
 

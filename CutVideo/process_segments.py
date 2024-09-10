@@ -10,7 +10,7 @@ def get_video_metadata(video_path):
         '-v', 'quiet', '-of', 'csv=p=0'
     ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    output = result.stdout.strip().split(',')   
+    output = result.stdout.strip().split(',')
     
     if len(output) == 2:
         duration = float(output[0])
@@ -38,7 +38,7 @@ def process_missing_transformations(timestamps, transformation_data):
                 segments.append((start_timestamp, end_timestamp))
                 start_timestamp = None
 
-    # Handle case where last segment extends to the end of the data
+    # Handle case where last segment extends to end
     if start_timestamp is not None:
         end_timestamp = timestamps[-1]
         segments.append((start_timestamp, end_timestamp))
