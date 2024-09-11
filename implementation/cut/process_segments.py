@@ -1,6 +1,6 @@
 import os
 import subprocess
-from config import WINDOW_SIZE, THRESHOLD_PERCENTAGE, MIN_DURATION, VIDEO_FILES
+from ..shared.config import WINDOW_SIZE, THRESHOLD_PERCENTAGE, MIN_DURATION, VIDEO_FILES
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
 def get_video_metadata(video_path):

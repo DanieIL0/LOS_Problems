@@ -1,7 +1,7 @@
 import os
 import ffmpeg
 from datetime import datetime
-from config import VIDEO_FILES, MIN_DURATION
+from ..shared.config import VIDEO_FILES, MIN_DURATION
 
 def get_video_metadata(video_path):
     probe = ffmpeg.probe(video_path)

@@ -1,30 +1,28 @@
-# data_processing.py
-
 import os
 import pandas as pd
 from bagpy import bagreader
-from config import rosbag_folder, results_path, timeframes
-from utils import process_timeframes
+from ..shared.config import ROSBAG_DATA_PATH, RESULTS_DIR_PLOT, TIMEFRAMES
+from ..shared.utils import process_timeframes
 
 def extract_data_from_bag():
     summary_data = []
 
-    timestamps = process_timeframes(timeframes)
+    timestamps = process_timeframes(TIMEFRAMES)
 
     min_timestamp = None
     max_timestamp = None
 
     # Iterate over all .bag files in the folder
-    for rosbag_file in os.listdir(rosbag_folder):
+    for rosbag_file in os.listdir(ROSBAG_DATA_PATH):
         if rosbag_file.endswith(".bag"):
-            rosbag_path = os.path.join(rosbag_folder, rosbag_file)
+            rosbag_path = os.path.join(ROSBAG_DATA_PATH, rosbag_file)
             print(f"Processing file: {rosbag_file}")
             b = bagreader(rosbag_path)
 
             ar_tracking_data = b.message_by_topic('/ARTracking')
             if ar_tracking_data:
                 ar_tracking_df = pd.read_csv(ar_tracking_data)
-                ar_tracking_output = os.path.join(results_path, f'{rosbag_file}_ar_tracking_data.csv')
+                ar_tracking_output = os.path.join(RESULTS_DIR_PLOT, f'{rosbag_file}_ar_tracking_data.csv')
                 ar_tracking_df.to_csv(ar_tracking_output, index=False)
                 print(f"Data from /ARTracking saved to {ar_tracking_output}")
 

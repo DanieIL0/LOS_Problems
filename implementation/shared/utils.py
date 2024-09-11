@@ -1,7 +1,4 @@
-# utils.py
-
 import numpy as np
-import pandas as pd
 from datetime import datetime
 
 def is_noisy(data, threshold):
