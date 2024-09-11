@@ -54,7 +54,14 @@ def cut_video_segments(segments, video_dir, results_dir):
                 (
                     ffmpeg
                     .input(video_path, ss=start, to=end)
-                    .output(output_filename, vcodec='copy', acodec='copy')
+                    .output(
+                        output_filename,
+                        vcodec='libx264',  
+                        acodec='aac',     
+                        vf='fps=30',
+                        g=60,
+                        force_key_frames='expr:gte(t,n_forced*2)'
+                    )
                     .run(quiet=True, overwrite_output=True)
                 )
                 print(f"Created video segment: {output_filename}")
