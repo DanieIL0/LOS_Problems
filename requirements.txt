@@ -1,4 +1,3 @@
-tqdm
 ffmpeg-python
 moviepy
 numpy
