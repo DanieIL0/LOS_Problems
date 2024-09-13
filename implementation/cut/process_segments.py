@@ -3,9 +3,9 @@ import subprocess
 from ..shared.config import WINDOW_SIZE, THRESHOLD_PERCENTAGE, MIN_DURATION, VIDEO_FILES
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
-def get_video_metadata(video_path):
+def get_video_metadata(video_dir):
     cmd = [
-        'ffmpeg', '-i', video_path,
+        'ffmpeg', '-i', video_dir,
         '-f', 'ffmetadata', '-show_entries', 'format=duration:format_tags=time_reference',
         '-v', 'quiet', '-of', 'csv=p=0'
     ]
@@ -17,7 +17,7 @@ def get_video_metadata(video_path):
         time_reference = float(output[1])
         return duration, time_reference
     else:
-        raise ValueError(f"Can't find metadata in: {video_path}")
+        raise ValueError(f"Can't find metadata in: {video_dir}")
 
 def process_missing_transformations(timestamps, transformation_data):
     segments = []
@@ -72,10 +72,10 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration):
 
 def cut_video_segments(segments, video_dir, results_dir):
     for video_file in VIDEO_FILES:
-        video_path = os.path.join(video_dir, video_file)
+        video_dir = os.path.join(video_dir, video_file)
         
         try:
-            video_duration, video_start_time = get_video_metadata(video_path)
+            video_duration, video_start_time = get_video_metadata(video_dir)
         except ValueError as e:
             print(e)
             continue
@@ -89,6 +89,6 @@ def cut_video_segments(segments, video_dir, results_dir):
 
             if end - start > MIN_DURATION: 
                 try:
-                    ffmpeg_extract_subclip(video_path, start, end, targetname=output_filename)
+                    ffmpeg_extract_subclip(video_dir, start, end, targetname=output_filename)
                 except Exception as e:
                     print(f"Error creating video {output_filename}: {e}")

@@ -13,15 +13,21 @@ if not os.path.exists(RESULTS_DIR_PLOT):
     os.makedirs(RESULTS_DIR_PLOT)
 
 MIN_DURATION = 2
-THRESHOLD_PERCENTAGE = 80
+THRESHOLD_PERCENTAGE = 90
 WINDOW_SIZE = 60
 
 VIDEO_FILES = [
+    'VIDEOTESTNFSGLINP_30_1-LapColor+5_compressed.mp4',
+    'VIDEOTESTNFSGLINP_30_1-LapColor+6_compressed.mp4',
+    'VIDEOTESTNFSGLINP_30_1-LapColor+7_compressed.mp4',
+    'VIDEOTESTNFSGLINP_30_1-LapColor+8_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+5_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+6_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+7_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+8_compressed.mp4'
 ]
+
+EXTRA_TIME = 2
 
 TIMEFRAMES = [
     "10:00:00 - 10:21:21", "10:36:43 - 10:46:37", "10:47:16 - 10:47:55", 
