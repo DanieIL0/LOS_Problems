@@ -20,14 +20,14 @@ MIN_DURATION = 2
 THRESHOLD_PERCENTAGE = 90
 WINDOW_SIZE = 60
 
-PADDING_SECONDS = 2
+PADDING_SECONDS = 1.5
 PHANTOM_THRESHOLD = 90
 
 VIDEO_FILES = [
-    'VIDEOTESTNFSGLINP_30_1-LapColor+5_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_1-LapColor+6_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_1-LapColor+7_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_1-LapColor+8_compressed.mp4',
+    #'VIDEOTESTNFSGLINP_30_1-LapColor+5_compressed.mp4',
+    #'VIDEOTESTNFSGLINP_30_1-LapColor+6_compressed.mp4',
+    #'VIDEOTESTNFSGLINP_30_1-LapColor+7_compressed.mp4',
+    #'VIDEOTESTNFSGLINP_30_1-LapColor+8_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+5_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+6_compressed.mp4',
     'VIDEOTESTNFSGLINP_30_4-Room+7_compressed.mp4',
@@ -42,6 +42,9 @@ TIMEFRAMES = [
     "11:21:32 - 11:21:56", "11:22:34 - 11:22:47", "11:24:27 - 11:25:18", 
     "11:26:33 - 11:26:35", "11:26:37 - 11:26:39", "11:26:41 - 11:35:26"
 ]
+
+
+OVERLAY_DURATION = 0.5
 
 # Plotting-related configurations
 PLOT_FLAG = True  # Set to True if you want to plot during processing
