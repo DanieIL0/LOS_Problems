@@ -1,5 +1,9 @@
 import os
 
+"""
+Defines various configuration settings for file paths and processing parameters.
+"""
+
 CURRENT_DIRECTORY = os.getcwd()
 ROSBAG_DATA_PATH = os.path.join(CURRENT_DIRECTORY, '..', 'ROSbag') 
 RESULTS_DIR_VID = os.path.join(CURRENT_DIRECTORY, 'cut_videos')
@@ -21,7 +25,8 @@ THRESHOLD_PERCENTAGE = 90
 WINDOW_SIZE = 60
 
 PADDING_SECONDS = 1.5
-PHANTOM_THRESHOLD = 90
+PHANTOM_THRESHOLD_PERCENTAGE = 80
+PHANTOM_WINDOW_SIZE = 1
 
 VIDEO_FILES = [
     #'VIDEOTESTNFSGLINP_30_1-LapColor+5_compressed.mp4',
@@ -34,15 +39,12 @@ VIDEO_FILES = [
     'VIDEOTESTNFSGLINP_30_4-Room+8_compressed.mp4'
 ]
 
-EXTRA_TIME = 2
-
 TIMEFRAMES = [
     "10:00:00 - 10:21:21", "10:36:43 - 10:46:37", "10:47:16 - 10:47:55", 
     "10:56:04 - 10:56:14", "10:56:17 - 10:56:20", "10:56:23 - 11:13:12", 
     "11:21:32 - 11:21:56", "11:22:34 - 11:22:47", "11:24:27 - 11:25:18", 
     "11:26:33 - 11:26:35", "11:26:37 - 11:26:39", "11:26:41 - 11:35:26"
 ]
-
 
 OVERLAY_DURATION = 0.5
 

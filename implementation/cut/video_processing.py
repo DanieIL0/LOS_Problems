@@ -5,6 +5,15 @@ from dateutil.parser import parse
 from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, PHANTOM_THRESHOLD, OVERLAY_DURATION
 
 def get_video_metadata(video_path):
+    """
+    Retrieves the duration and start timestamp of a video.
+
+    Parameters:
+        video_path (str): Path to the video file.
+
+    Returns:
+        tuple: (duration, start_timestamp)
+    """
     probe = ffmpeg.probe(video_path)
     format_info = probe['format']
     tags = format_info.get('tags', {})
@@ -17,6 +26,15 @@ def get_video_metadata(video_path):
     return duration, start_timestamp
 
 def get_video_resolution(video_path):
+    """
+    Retrieves the resolution of a video.
+
+    Parameters:
+        video_path (str): Path to the video file.
+
+    Returns:
+        tuple: (width, height)
+    """
     probe = ffmpeg.probe(video_path)
     video_streams = [stream for stream in probe['streams'] if stream['codec_type'] == 'video']
     if not video_streams:
@@ -26,6 +44,16 @@ def get_video_resolution(video_path):
     return width, height
 
 def group_videos_by_start_time(video_files, video_dir):
+    """
+    Groups videos by their start timestamp.
+
+    Parameters:
+        video_files (list): List of video filenames.
+        video_dir (str): Directory containing the video files.
+
+    Returns:
+        dict: Videos grouped by start timestamp.
+    """
     grouped_videos = {}
     
     for video_file in video_files:
@@ -45,6 +73,18 @@ def group_videos_by_start_time(video_files, video_dir):
     return grouped_videos
 
 def get_adjacent_video(current_video_file, grouped_videos, video_dir, direction='next'):
+    """
+    Finds the previous or next video based on the start timestamp.
+
+    Parameters:
+        current_video_file (str): Name of the current video file.
+        grouped_videos (dict): Dictionary of grouped videos.
+        video_dir (str): Directory containing the video files.
+        direction (str): 'previous' or 'next'.
+
+    Returns:
+        tuple or None: Tuple with (video_file, start_time, end_time) or None.
+    """
     video_times = sorted(grouped_videos.keys())
     current_video_time = None
     for time, videos in grouped_videos.items():
@@ -74,6 +114,20 @@ def get_adjacent_video(current_video_file, grouped_videos, video_dir, direction=
         return None
 
 def correlate_timestamp_with_video(segments, video_start_time, video_duration, video_file, grouped_videos, video_dir):
+    """
+    Correlates segments with video playback time, considers padding, and includes other videos if necessary.
+
+    Parameters:
+        segments (list): List of segments.
+        video_start_time (float): Start time of the current video.
+        video_duration (float): Duration of the current video.
+        video_file (str): Name of the current video file.
+        grouped_videos (dict): Videos grouped by start time.
+        video_dir (str): Directory containing the video files.
+
+    Returns:
+        list: List of segment information.
+    """
     correlated_times = []
     video_end_time = video_start_time + video_duration
 
@@ -119,6 +173,14 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
     return correlated_times
 
 def cut_video_segments(segments, video_dir, results_dir):
+    """
+    Cuts video segments from given videos and adds overlays.
+
+    Parameters:
+        segments (list): List of segments.
+        video_dir (str): Directory containing the video files.
+        results_dir (str): Directory for the output of the cut videos.
+    """
     grouped_videos = group_videos_by_start_time(VIDEO_FILES, video_dir)
 
     for start_time, videos in grouped_videos.items():
