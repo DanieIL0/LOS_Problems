@@ -2,24 +2,26 @@ import os
 import pandas as pd
 import numpy as np
 from bagpy import bagreader
-from ..shared.config import TIMEFRAMES, WINDOW_SIZE, THRESHOLD_PERCENTAGE
+from ..shared.config import (
+    TIMEFRAMES,
+    WINDOW_SIZE,
+    THRESHOLD_PERCENTAGE,
+    PHANTOM_WINDOW_SIZE,
+    PHANTOM_THRESHOLD_PERCENTAGE,
+)
 from ..shared.utils import process_timeframes, is_within_timeframes
 
-def process_rosbag_files(rosbag_folder):
+def extract_marker_transforms(rosbag_folder, marker_frame_id):
     """
-    Processes ROS bag files to identify segments where a specified threshold of missing transformations is exceeded.
+    Extracts the transforms for a specified marker from ROS bag files.
 
     Parameters:
         rosbag_folder (str): Directory containing the ROS bag files.
+        marker_frame_id (str): The frame ID of the marker to extract transforms for.
 
     Returns:
-        list: A list of identified segments where the threshold of missing transformations is exceeded.
+        tuple: Two lists containing timestamps and transforms.
     """
-    segments = []
-    timeframes = process_timeframes(TIMEFRAMES)
-    window_size = WINDOW_SIZE
-    threshold_missing = THRESHOLD_PERCENTAGE / 100.0 * window_size
-
     all_timestamps = []
     all_transforms = []
     for rosbag_file in os.listdir(rosbag_folder):
@@ -29,16 +31,43 @@ def process_rosbag_files(rosbag_folder):
 
             ar_tracking_data = b.message_by_topic('/ARTracking')
             if ar_tracking_data:
-                ar_tracking_df = pd.read_csv(ar_tracking_data)
-                ar_tracking_df = ar_tracking_df[ar_tracking_df['header.frame_id'] == 'telescopeMarkerTransform']
 
-                timestamps = ar_tracking_df['Time'].astype(float).values
-                transforms = ar_tracking_df['pose.position.x'].values
+                ar_tracking_df = pd.read_csv(ar_tracking_data, index_col=False)
+
+                if 'header.frame_id' not in ar_tracking_df.columns:
+                    print(f"'header.frame_id' not found in {ar_tracking_data}")
+                    continue
+
+                marker_df = ar_tracking_df[ar_tracking_df['header.frame_id'] == marker_frame_id]
+                marker_df = marker_df[pd.to_numeric(marker_df['Time'], errors='coerce').notnull()]
+                marker_df['Time'] = marker_df['Time'].astype(float)
+
+                marker_df = marker_df[pd.to_numeric(marker_df['pose.position.x'], errors='coerce').notnull()]
+                marker_df['pose.position.x'] = marker_df['pose.position.x'].astype(float)
+
+                timestamps = marker_df['Time'].values
+                transforms = marker_df['pose.position.x'].values
 
                 all_timestamps.extend(timestamps)
                 all_transforms.extend(transforms)
+    return all_timestamps, all_transforms
 
-    # Analyze the combined data
+def identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes):
+    """
+    Identifies segments where the percentage of missing transformations exceeds the threshold.
+
+    Parameters:
+        all_timestamps (list): List of timestamps.
+        all_transforms (list): List of transforms.
+        window_size (int): The size of the window to check for missing transforms.
+        threshold_percentage (float): The percentage threshold for missing transforms.
+        timeframes (list): List of timeframes to consider.
+
+    Returns:
+        list: A list of identified segments where the threshold of missing transformations is exceeded.
+    """
+    threshold_missing = threshold_percentage / 100.0 * window_size
+    segments = []
     start_timestamp = None
     for i in range(len(all_timestamps) - window_size + 1):
         window_data = np.array(all_transforms[i:i + window_size])
@@ -61,6 +90,18 @@ def process_rosbag_files(rosbag_folder):
         if is_within_timeframes(start_timestamp, timeframes):
             segments.append((start_timestamp, end_timestamp, "merged"))
 
+    return segments
+
+def merge_segments(segments):
+    """
+    Merges overlapping or consecutive segments.
+
+    Parameters:
+        segments (list): List of segments to merge.
+
+    Returns:
+        list: A list of merged segments.
+    """
     merged_segments = []
     previous_segment = None
 
@@ -71,6 +112,44 @@ def process_rosbag_files(rosbag_folder):
             merged_segments.append(segment)
         previous_segment = segment
 
-    print(f"Final segments to cut: {merged_segments}")
+    return merged_segments
 
+def process_telescope_transforms(rosbag_folder):
+    """
+    Processes telescope marker transforms to identify segments with missing data.
+
+    Parameters:
+        rosbag_folder (str): Directory containing the ROS bag files.
+
+    Returns:
+        list: A list of telescope segments where missing data exceeds the threshold.
+    """
+    timeframes = process_timeframes(TIMEFRAMES)
+    window_size = WINDOW_SIZE
+    threshold_percentage = THRESHOLD_PERCENTAGE
+
+    all_timestamps, all_transforms = extract_marker_transforms(rosbag_folder, 'telescopeMarkerTransform')
+    segments = identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes)
+    merged_segments = merge_segments(segments)
+    print(f"Telescope segments: {merged_segments}")
+    return merged_segments
+
+def process_phantom_transforms(rosbag_folder):
+    """
+    Processes phantom marker transforms to identify segments with missing data.
+
+    Parameters:
+        rosbag_folder (str): Directory containing the ROS bag files.
+
+    Returns:
+        list: A list of phantom segments where missing data exceeds the threshold.
+    """
+    timeframes = process_timeframes(TIMEFRAMES)
+    window_size = PHANTOM_WINDOW_SIZE
+    threshold_percentage = PHANTOM_THRESHOLD_PERCENTAGE
+
+    all_timestamps, all_transforms = extract_marker_transforms(rosbag_folder, 'phantomMarkerTransform')
+    segments = identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes)
+    merged_segments = merge_segments(segments)
+    print(f"Phantom segments: {merged_segments}")
     return merged_segments

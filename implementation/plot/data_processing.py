@@ -5,6 +5,12 @@ from ..shared.config import ROSBAG_DATA_PATH, RESULTS_DIR_PLOT, TIMEFRAMES
 from ..shared.utils import process_timeframes
 
 def extract_data_from_bag():
+    """
+    Extracts data from ROS bag files and processes AR tracking data within specific timeframes.
+
+    Returns:
+        tuple: A summary of the extracted data, and the minimum and maximum timestamps.
+    """
     summary_data = []
 
     timestamps = process_timeframes(TIMEFRAMES)
