@@ -1,4 +1,5 @@
 import os
+import logging
 from ..shared.config import WINDOW_SIZE, THRESHOLD_PERCENTAGE, MIN_DURATION, VIDEO_FILES
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from ..shared.utils import get_video_metadata, correlate_timestamp_with_video
@@ -54,10 +55,10 @@ def cut_video_segments(segments, video_dir, results_dir):
         try:
             video_duration, video_start_time = get_video_metadata(video_path)
         except ValueError as e:
-            print(e)
+            logging.error(e)
             continue
 
-        print(f"Processing video: {video_file}")
+        logging.info(f"Processing video: {video_file}")
 
         video_segments = correlate_timestamp_with_video(segments, video_start_time, video_duration, MIN_DURATION)
 
@@ -68,4 +69,4 @@ def cut_video_segments(segments, video_dir, results_dir):
                 try:
                     ffmpeg_extract_subclip(video_path, start, end, targetname=output_filename)
                 except Exception as e:
-                    print(f"Error creating video {output_filename}: {e}")
+                    logging.error(f"Error creating video {output_filename}: {e}")

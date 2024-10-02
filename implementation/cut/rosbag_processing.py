@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import logging
 from bagpy import bagreader
 from ..shared.config import (
     TIMEFRAMES,
@@ -35,7 +36,7 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
                 ar_tracking_df = pd.read_csv(ar_tracking_data, index_col=False)
 
                 if 'header.frame_id' not in ar_tracking_df.columns:
-                    print(f"'header.frame_id' not found in {ar_tracking_data}")
+                    logging.info(f"'header.frame_id' not found in {ar_tracking_data}")
                     continue
 
                 marker_df = ar_tracking_df[ar_tracking_df['header.frame_id'] == marker_frame_id]
@@ -131,7 +132,7 @@ def process_telescope_transforms(rosbag_folder):
     all_timestamps, all_transforms = extract_marker_transforms(rosbag_folder, 'telescopeMarkerTransform')
     segments = identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes)
     merged_segments = merge_segments(segments)
-    print(f"Telescope segments: {merged_segments}")
+    logging.info(f"Telescope segments: {merged_segments}")
     return merged_segments
 
 def process_phantom_transforms(rosbag_folder):
@@ -151,5 +152,5 @@ def process_phantom_transforms(rosbag_folder):
     all_timestamps, all_transforms = extract_marker_transforms(rosbag_folder, 'phantomMarkerTransform')
     segments = identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes)
     merged_segments = merge_segments(segments)
-    print(f"Phantom segments: {merged_segments}")
+    logging.info(f"Phantom segments: {merged_segments}")
     return merged_segments

@@ -1,5 +1,6 @@
 import os
 import ffmpeg
+import logging
 from datetime import datetime
 from dateutil.parser import parse
 from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION
@@ -61,7 +62,7 @@ def group_videos_by_start_time(video_files, video_dir):
         try:
             _, video_start_time = get_video_metadata(video_path)
         except ValueError as e:
-            print(e)
+            logging.error(e)
             continue
 
         video_start_time = int(video_start_time)
@@ -195,7 +196,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                 video_duration, video_start_time = get_video_metadata(video_path)
                 width, height = get_video_resolution(video_path)
             except ValueError as e:
-                print(e)
+                logging.error(e)
                 continue
 
             video_segments = correlate_timestamp_with_video(
@@ -307,8 +308,8 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                         .run(quiet=True, overwrite_output=True)
                     )
 
-                    print(f"Created video segment: {output_filename}")
+                    logging.info(f"Created video segment: {output_filename}")
                 except ffmpeg.Error as e:
-                    print(f"FFmpeg Error for {output_filename}: {e.stderr.decode()}")
+                    logging.error(f"FFmpeg Error for {output_filename}: {e.stderr.decode()}")
                 except Exception as e:
-                    print(f"Unexpected error creating video segment {output_filename}: {e}")
+                    logging.error(f"Unexpected error creating video segment {output_filename}: {e}")
