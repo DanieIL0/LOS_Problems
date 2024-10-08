@@ -3,7 +3,7 @@ import ffmpeg
 import logging
 from datetime import datetime
 from dateutil.parser import parse
-from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION
+from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
 
 def get_video_metadata(video_path):
     """
@@ -248,6 +248,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                             y='(h-text_h)/2',
                             fontsize=60,
                             fontcolor='white',
+                            fontfile=FONT_FILE,
                             box=1,
                             boxcolor='black@0.75',
                             borderw=2,
@@ -264,6 +265,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                             y='(h-text_h)/2',
                             fontsize=60,
                             fontcolor='white',
+                            fontfile=FONT_FILE,
                             box=1,
                             boxcolor='black@0.75',
                             borderw=2,
@@ -277,17 +279,12 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
 
                         # Check if phantom_segment overlaps with current video segment
                         if (phantom_end_time <= segment_info['start_time']) or (phantom_start_time >= segment_info['end_time']):
-                            continue  # No overlap
-
-                        # Compute the overlap interval in video segment time
+                            continue
                         overlap_start = max(phantom_start_time, segment_info['start_time'])
                         overlap_end = min(phantom_end_time, segment_info['end_time'])
-
-                        # Adjust to segment relative time
                         overlay_start_time = overlap_start - segment_info['start_time']
                         overlay_end_time = overlap_end - segment_info['start_time']
 
-                        # Overlay text during the overlap interval
                         video_stream = video_stream.filter(
                             'drawtext',
                             text='Phantom transforms missing',
@@ -296,6 +293,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                             y='h-text_h-10',
                             fontsize=40,
                             fontcolor='yellow',
+                            fontfile=FONT_FILE,
                             box=1,
                             boxcolor='black@0.5',
                             borderw=2,

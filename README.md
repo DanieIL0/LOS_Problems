@@ -34,12 +34,6 @@ Guide to set up the environment necessary to run the script.
         If it doesn't work:
         Download FFmpeg from (https://ffmpeg.org/download.html) and follow the instructions.
 
-    - **macOS**:
-        via Homebrew:
-        ```bash
-        brew install ffmpeg
-        ```
-
     - **Linux**:
         via sudo package-manager:
         ```bash
@@ -47,7 +41,7 @@ Guide to set up the environment necessary to run the script.
         ```
 
 4. **Adjust Config**:
-    adjust the config.py file if necessary in implementation/shared/config.py
+    adjust the config.py file if necessary in implementation\shared\config.py
 
 5. **Place Files in correct directory**:
     put all the files into a python directory \ATLASLineOfSight\Pig04\Python

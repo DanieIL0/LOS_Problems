@@ -8,11 +8,12 @@ CURRENT_DIRECTORY = os.getcwd()
 ROSBAG_DATA_PATH = os.path.join(CURRENT_DIRECTORY, '..', 'ROSbag') 
 RESULTS_DIR_VID = os.path.join(CURRENT_DIRECTORY, 'cut_videos')
 RESULTS_DIR_PLOT = os.path.join(CURRENT_DIRECTORY, 'plots')
-VIDEO_DIR = os.path.join(CURRENT_DIRECTORY, '..')
+VIDEO_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Videos')
 
 LOG_FILE_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Annotations')
 LOG_FILE_NAME = 'log_Tuesday, September 28, 2021_4_57_02 AM'
 LOG_FILE_PATH = os.path.join(LOG_FILE_DIR, LOG_FILE_NAME)
+FONT_FILE = 'ARIAL.TTF'
 
 if not os.path.exists(RESULTS_DIR_VID):
     os.makedirs(RESULTS_DIR_VID)
@@ -29,14 +30,8 @@ PHANTOM_THRESHOLD_PERCENTAGE = 80
 PHANTOM_WINDOW_SIZE = 1
 
 VIDEO_FILES = [
-    #'VIDEOTESTNFSGLINP_30_1-LapColor+5_compressed.mp4',
-    #'VIDEOTESTNFSGLINP_30_1-LapColor+6_compressed.mp4',
-    #'VIDEOTESTNFSGLINP_30_1-LapColor+7_compressed.mp4',
-    #'VIDEOTESTNFSGLINP_30_1-LapColor+8_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_4-Room+5_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_4-Room+6_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_4-Room+7_compressed.mp4',
-    'VIDEOTESTNFSGLINP_30_4-Room+8_compressed.mp4'
+    filename for filename in os.listdir(VIDEO_DIR)
+    if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and 'Room' in filename
 ]
 
 TIMEFRAMES = [
