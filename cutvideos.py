@@ -12,7 +12,7 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 log_filename = f"log_{current_time}.txt"
 log_file_path = os.path.join(LOGS_DIR, log_filename)
-
+print(f"Script started at {current_time}")
 old_stdout = sys.stdout
 old_stderr = sys.stderr
 
@@ -27,7 +27,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-print(f"Script started at {current_time}")
 logging.info("Starting the script") 
 
 try:
@@ -43,8 +42,7 @@ except Exception as e:
     logging.error(f"An error occurred: {e}")
 finally:
     logging.info("Script ended")
-    print(f"Script ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
-    
     sys.stdout = old_stdout 
     sys.stderr = old_stderr 
     log_file.close()
+    print(f"Script ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
