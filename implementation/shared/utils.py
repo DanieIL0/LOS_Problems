@@ -6,7 +6,7 @@ import subprocess
 def is_noisy(data, threshold):
     """
     Determines if data is noisy based on a standard deviation threshold.
-    
+
     Parameters:
         data (array-like): The data to evaluate.
         threshold (float): The standard deviation threshold for noise.
@@ -84,7 +84,7 @@ def get_video_metadata(video_dir):
 
     Returns:
         tuple: (duration, time_reference) if both values are found in the metadata.
-    
+
     Raises:
         ValueError: If the metadata does not contain the necessary information.
     """
@@ -95,7 +95,7 @@ def get_video_metadata(video_dir):
     ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     output = result.stdout.strip().split(',')
-    
+
     if len(output) == 2:
         duration = float(output[0])
         time_reference = float(output[1])
@@ -139,14 +139,14 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, m
 
     for segment in segments:
         start_time, end_time, _ = segment
-        
+
         if end_time <= video_start_time or start_time >= video_end_time:
             continue
         if start_time < video_start_time:
             start_time = video_start_time
         if end_time > video_end_time:
             end_time = video_end_time
-        
+
         duration = end_time - start_time
         if duration >= min_duration:
             correlated_times.append((start_time - video_start_time, end_time - video_start_time))
@@ -168,7 +168,7 @@ def parse_log_file(file_path):
     """
     steps = []
     current_step = None
-    
+
     with open(file_path, 'r') as file:
         log_lines = file.readlines()
 
@@ -179,20 +179,57 @@ def parse_log_file(file_path):
             timestamp = int(timestamp)
             time_obj = datetime.strptime(time_str, "%H:%M:%S.%f")
 
+            start_time_seconds = time_obj.hour * 3600 + time_obj.minute * 60 + time_obj.second + time_obj.microsecond / 1e6
+
             if current_step:
-                current_step['end_time'] = time_obj
+                current_step['end_time'] = start_time_seconds
                 steps.append(current_step)
 
             current_step = {
-                'start_time': time_obj,
+                'start_time': start_time_seconds,
                 'description': description,
                 'timestamp': timestamp
             }
 
     if current_step:
+        current_step['end_time'] = current_step['start_time'] + 3600
         steps.append(current_step)
 
     return steps
+
+def unix_timestamp_to_seconds_since_midnight(timestamp):
+    """
+    Converts a UNIX timestamp to seconds since midnight.
+
+    Parameters:
+        timestamp (float): UNIX timestamp.
+
+    Returns:
+        float: Seconds since midnight.
+    """
+    dt = datetime.fromtimestamp(timestamp)
+    seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6
+    return seconds_since_midnight
+
+def find_log_step(timestamp_seconds, log_steps):
+    """
+    Finds the log step that a timestamp falls into.
+
+    Parameters:
+        timestamp_seconds (float): The timestamp in seconds since midnight.
+        log_steps (list): List of log steps, each with 'start_time' and 'end_time'.
+
+    Returns:
+        str: The log step description or label, or None if not found.
+    """
+    for step in log_steps:
+        start_time = step['start_time']
+        end_time = step.get('end_time', None)
+        if end_time is None:
+            continue  # Skip if end_time is not defined
+        if start_time <= timestamp_seconds <= end_time:
+            return step['description']
+    return None
 
 def get_log_steps(log_file_path):
     """
@@ -208,44 +245,13 @@ def get_log_steps(log_file_path):
     step_durations = []
 
     for step in steps:
-        start_time = step['start_time']
-        end_time = step['end_time'] if 'end_time' in step else None
+        start_time = datetime.fromtimestamp(step['start_time']).strftime('%H:%M:%S.%f')
+        end_time = datetime.fromtimestamp(step['end_time']).strftime('%H:%M:%S.%f') if 'end_time' in step else 'Ongoing'
         description = step['description']
         step_durations.append({
             'description': description,
-            'start_time': start_time.strftime('%H:%M:%S.%f'),
-            'end_time': end_time.strftime('%H:%M:%S.%f') if end_time else 'Ongoing'
+            'start_time': start_time,
+            'end_time': end_time
         })
 
     return step_durations
-
-def group_log_by_steps(log_file_path):
-    """
-    Groups log entries by their respective steps.
-
-    Parameters:
-        log_file_path (str): Path to the log file.
-
-    Returns:
-        dict: A dictionary where keys are step labels and values are lists of corresponding log entries.
-    """
-    steps = parse_log_file(log_file_path)
-    grouped_steps = {}
-    current_step_label = None
-
-    for step in steps:
-        description = step['description']
-        if re.match(r'\d+\.\d+ Step\d+:', description):
-            current_step_label = description.split(':')[0].strip()
-
-        if current_step_label:
-            if current_step_label not in grouped_steps:
-                grouped_steps[current_step_label] = []
-
-            grouped_steps[current_step_label].append({
-                'description': description,
-                'start_time': step['start_time'].strftime('%H:%M:%S.%f'),
-                'timestamp': step['timestamp']
-            })
-
-    return grouped_steps

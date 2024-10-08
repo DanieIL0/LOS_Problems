@@ -3,7 +3,9 @@ import ffmpeg
 import logging
 from datetime import datetime
 from dateutil.parser import parse
-from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
+import re
+from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, LOG_FILE_DIR
+from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 
 def get_video_metadata(video_path):
     """
@@ -183,6 +185,12 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
         video_dir (str): Directory containing the video files.
         results_dir (str): Directory for the output of the cut videos.
     """
+    if LOG_FILE_DIR:
+        log_steps = parse_log_file(LOG_FILE_DIR)
+    else:
+        logging.warning("No log file found. Skipping log step annotations.")
+        log_steps = None
+
     grouped_videos = group_videos_by_start_time(VIDEO_FILES, video_dir)
 
     for start_time, videos in grouped_videos.items():
@@ -206,8 +214,6 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
             video_segments = [seg for seg in video_segments if seg['end_time'] - seg['start_time'] >= MIN_DURATION]
 
             for j, segment_info in enumerate(video_segments):
-                output_filename = os.path.join(output_dir, f'{os.path.splitext(video_file)[0]}_segment_{j+1}.mp4')
-
                 try:
                     original_start_time = segment_info.get('original_start_time', segment_info['start_time'] + PADDING_SECONDS)
                     original_end_time = segment_info.get('original_end_time', segment_info['end_time'] - PADDING_SECONDS)
@@ -299,6 +305,28 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                             borderw=2,
                             bordercolor='yellow'
                         )
+
+                    start_time_str = datetime.fromtimestamp(original_start_time).strftime('%H-%M-%S')
+
+                    if log_steps:
+                        original_start_time_seconds = unix_timestamp_to_seconds_since_midnight(original_start_time)
+
+                        log_step_description = find_log_step(original_start_time_seconds, log_steps)
+                        if log_step_description is None:
+                            log_step_label = "NoLogStep"
+                        else:
+                            match = re.search(r"Step(\d+)", log_step_description)
+                            if match:
+                                log_step_label = f"Step{match.group(1)}"
+                            else:
+                                log_step_label = "UnknownStep"
+                    else:
+                        log_step_label = "NoLogFile"
+                    base_filename = os.path.splitext(video_file)[0]
+                    output_filename = os.path.join(
+                        output_dir,
+                        f'{base_filename}_segment_{j+1}_{start_time_str}_logstep_{log_step_label}.mp4'
+                    )
 
                     (
                         ffmpeg

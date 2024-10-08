@@ -11,8 +11,19 @@ RESULTS_DIR_PLOT = os.path.join(CURRENT_DIRECTORY, 'plots')
 VIDEO_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Videos')
 
 LOG_FILE_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Annotations')
-LOG_FILE_NAME = 'log_Tuesday, September 28, 2021_4_57_02 AM'
-LOG_FILE_PATH = os.path.join(LOG_FILE_DIR, LOG_FILE_NAME)
+
+LOG_FILES = [
+    filename for filename in os.listdir(LOG_FILE_DIR)
+    if os.path.isfile(os.path.join(LOG_FILE_DIR, filename))
+]
+
+if LOG_FILES:
+    LOG_FILE_NAME = LOG_FILES[0]
+    LOG_FILE_PATH = os.path.join(LOG_FILE_DIR, LOG_FILE_NAME)
+else:
+    LOG_FILE_NAME = None
+    LOG_FILE_PATH = None
+
 FONT_FILE = 'ARIAL.TTF'
 
 if not os.path.exists(RESULTS_DIR_VID):
