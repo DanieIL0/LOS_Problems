@@ -9,20 +9,22 @@ ROSBAG_DATA_PATH = os.path.join(CURRENT_DIRECTORY, '..', 'ROSbag')
 RESULTS_DIR_VID = os.path.join(CURRENT_DIRECTORY, 'cut_videos')
 RESULTS_DIR_PLOT = os.path.join(CURRENT_DIRECTORY, 'plots')
 VIDEO_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Videos')
-
 LOG_FILE_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Annotations')
 
 LOG_FILES = [
     filename for filename in os.listdir(LOG_FILE_DIR)
-    if os.path.isfile(os.path.join(LOG_FILE_DIR, filename))
+    if os.path.isfile(os.path.join(LOG_FILE_DIR, filename)) and filename.endswith('.log')
 ]
 
+LOG_FILE = ""
+
 if LOG_FILES:
-    LOG_FILE_NAME = LOG_FILES[0]
-    LOG_FILE_PATH = os.path.join(LOG_FILE_DIR, LOG_FILE_NAME)
+    for log_file in LOG_FILES:
+        log_file_path = os.path.join(LOG_FILE_DIR, log_file)
+        with open(log_file_path, 'r') as file:
+            LOG_FILE += file.read() + "\n"
 else:
-    LOG_FILE_NAME = None
-    LOG_FILE_PATH = None
+    concatenated_logs = None
 
 FONT_FILE = 'ARIAL.TTF'
 

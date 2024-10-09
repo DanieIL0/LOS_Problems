@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from dateutil.parser import parse
 import re
-from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, LOG_FILE_DIR
+from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, LOG_FILE
 from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 
 def get_video_metadata(video_path):
@@ -185,8 +185,8 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
         video_dir (str): Directory containing the video files.
         results_dir (str): Directory for the output of the cut videos.
     """
-    if LOG_FILE_DIR:
-        log_steps = parse_log_file(LOG_FILE_DIR)
+    if LOG_FILE:
+        log_steps = parse_log_file(LOG_FILE)
     else:
         logging.warning("No log file found. Skipping log step annotations.")
         log_steps = None
@@ -225,7 +225,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
 
                     inputs = []
                     streams = []
-                    for idx, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
+                    for _, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
                         vid_path = os.path.join(video_dir, vid_file)
                         ss = max(segment_info['start_time'] - vid_start, 0)
                         to = min(segment_info['end_time'] - vid_start, vid_end - vid_start)
@@ -322,10 +322,9 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                                 log_step_label = "UnknownStep"
                     else:
                         log_step_label = "NoLogFile"
-                    base_filename = os.path.splitext(video_file)[0]
                     output_filename = os.path.join(
                         output_dir,
-                        f'{base_filename}_segment_{j+1}_{start_time_str}_logstep_{log_step_label}.mp4'
+                        f'segment_{j+1}_{start_time_str}_logstep_{log_step_label}.mp4'
                     )
 
                     (

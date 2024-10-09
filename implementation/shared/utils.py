@@ -156,12 +156,12 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, m
     print(f"Correlated times: {correlated_times}")
     return correlated_times
 
-def parse_log_file(file_path):
+def parse_log_file(log_content):
     """
-    Parses a log file to extract steps with timestamps and descriptions.
+    Parses log content to extract steps with timestamps and descriptions.
 
     Parameters:
-        file_path (str): Path to the log file.
+        log_content (str): Content of the log file as a string.
 
     Returns:
         list: A list of parsed steps with start time, end time, description, and timestamp.
@@ -169,8 +169,7 @@ def parse_log_file(file_path):
     steps = []
     current_step = None
 
-    with open(file_path, 'r') as file:
-        log_lines = file.readlines()
+    log_lines = log_content.splitlines()
 
     for line in log_lines:
         match = re.match(r'\[(\d+)\]\[(\d{2}:\d{2}:\d{2}\.\d{3})\] (.+)', line)
@@ -226,7 +225,7 @@ def find_log_step(timestamp_seconds, log_steps):
         start_time = step['start_time']
         end_time = step.get('end_time', None)
         if end_time is None:
-            continue  # Skip if end_time is not defined
+            continue 
         if start_time <= timestamp_seconds <= end_time:
             return step['description']
     return None
