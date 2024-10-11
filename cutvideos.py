@@ -2,7 +2,6 @@ import os
 import sys
 from datetime import datetime
 import logging
-import pytz
 from implementation.shared.config import VIDEO_DIR, RESULTS_DIR_VID, ROSBAG_DATA_PATH
 from implementation.cut.rosbag_processing import process_telescope_transforms, process_phantom_transforms
 from implementation.cut.video_processing import cut_video_segments
@@ -10,12 +9,9 @@ from implementation.cut.video_processing import cut_video_segments
 LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+print(f"Script started at {current_time}")
 log_filename = f"log_{current_time}.txt"
 log_file_path = os.path.join(LOGS_DIR, log_filename)
-tz_berlin = pytz.timezone('Europe/Berlin')
-old_tz = os.environ.get('TZ', None)
-os.environ['TZ'] = 'Europe/Berlin'
-print(f"Script started at {current_time}")
 old_stdout = sys.stdout
 old_stderr = sys.stderr
 
@@ -48,10 +44,4 @@ finally:
     sys.stdout = old_stdout 
     sys.stderr = old_stderr 
     log_file.close()
-
-    if old_tz is not None:
-        os.environ['TZ'] = old_tz
-    else:
-        del os.environ['TZ']
-        
     print(f"Script ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")

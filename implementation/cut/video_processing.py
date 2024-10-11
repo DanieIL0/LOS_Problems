@@ -3,9 +3,9 @@ import ffmpeg
 import logging
 from datetime import datetime
 from dateutil.parser import parse
-import re
 from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, LOG_FILE
 from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
+from ..cut.generate_table import generate_excel_table, collect_segment_info
 
 def get_video_metadata(video_path):
     """
@@ -28,23 +28,6 @@ def get_video_metadata(video_path):
     duration = float(format_info['duration'])
     return duration, start_timestamp
 
-def get_video_resolution(video_path):
-    """
-    Retrieves the resolution of a video.
-
-    Parameters:
-        video_path (str): Path to the video file.
-
-    Returns:
-        tuple: (width, height)
-    """
-    probe = ffmpeg.probe(video_path)
-    video_streams = [stream for stream in probe['streams'] if stream['codec_type'] == 'video']
-    if not video_streams:
-        raise ValueError(f"No video streams found in {video_path}")
-    width = int(video_streams[0]['width'])
-    height = int(video_streams[0]['height'])
-    return width, height
 
 def group_videos_by_start_time(video_files, video_dir):
     """
@@ -136,40 +119,47 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
 
     for segment in segments:
         start_time, end_time, _ = segment
-        original_start_time = start_time
-        original_end_time = end_time
+        los_issue_start_time = start_time
+        los_issue_end_time = end_time
 
-        if end_time <= video_start_time or start_time >= video_end_time:
-            continue
-        adjusted_start_time = start_time - PADDING_SECONDS
-        adjusted_end_time = end_time + PADDING_SECONDS
-        needs_previous_video = adjusted_start_time < video_start_time
-        needs_next_video = adjusted_end_time > video_end_time
+        segment_start_time = start_time - PADDING_SECONDS
+        segment_end_time = end_time + PADDING_SECONDS
+        segment_start_time = max(segment_start_time, video_start_time)
+        segment_end_time = min(segment_end_time, video_end_time)
+
+        needs_previous_video = segment_start_time < video_start_time
+        needs_next_video = segment_end_time > video_end_time
+
         video_inputs = [(video_file, video_start_time, video_end_time)]
+
         if needs_previous_video:
             previous_video_info = get_adjacent_video(video_file, grouped_videos, video_dir, direction='previous')
             if previous_video_info:
                 prev_video_file, prev_start_time, prev_end_time = previous_video_info
                 video_inputs.insert(0, (prev_video_file, prev_start_time, prev_end_time))
-                adjusted_start_time = max(adjusted_start_time, prev_start_time)
+                segment_start_time = max(segment_start_time, prev_start_time)
             else:
-                adjusted_start_time = video_start_time 
+                segment_start_time = video_start_time
 
         if needs_next_video:
             next_video_info = get_adjacent_video(video_file, grouped_videos, video_dir, direction='next')
             if next_video_info:
                 next_video_file, next_start_time, next_end_time = next_video_info
                 video_inputs.append((next_video_file, next_start_time, next_end_time))
-                adjusted_end_time = min(adjusted_end_time, next_end_time)
+                segment_end_time = min(segment_end_time, next_end_time)
             else:
-                adjusted_end_time = video_end_time
+                segment_end_time = video_end_time
+
+        if segment_end_time <= segment_start_time:
+            logging.warning(f"Segment end time {segment_end_time} is not after start time {segment_start_time}. Skipping segment.")
+            continue
 
         segment_info = {
             'video_inputs': video_inputs,
-            'start_time': adjusted_start_time,
-            'end_time': adjusted_end_time,
-            'original_start_time': original_start_time,
-            'original_end_time': original_end_time
+            'segment_start_time': segment_start_time,
+            'segment_end_time': segment_end_time,
+            'los_issue_start_time': los_issue_start_time,
+            'los_issue_end_time': los_issue_end_time
         }
         correlated_times.append(segment_info)
 
@@ -192,6 +182,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
         log_steps = None
 
     grouped_videos = group_videos_by_start_time(VIDEO_FILES, video_dir)
+    segment_info_list = []
 
     for start_time, videos in grouped_videos.items():
         folder_name = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d_%H-%M-%S')
@@ -202,7 +193,6 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
             video_path = os.path.join(video_dir, video_file)
             try:
                 video_duration, video_start_time = get_video_metadata(video_path)
-                width, height = get_video_resolution(video_path)
             except ValueError as e:
                 logging.error(e)
                 continue
@@ -211,27 +201,38 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                 segments, video_start_time, video_duration, video_file, grouped_videos, video_dir
             )
 
-            video_segments = [seg for seg in video_segments if seg['end_time'] - seg['start_time'] >= MIN_DURATION]
+            video_segments = [seg for seg in video_segments if seg['segment_end_time'] - seg['segment_start_time'] >= MIN_DURATION]
 
             for j, segment_info in enumerate(video_segments):
                 try:
-                    original_start_time = segment_info.get('original_start_time', segment_info['start_time'] + PADDING_SECONDS)
-                    original_end_time = segment_info.get('original_end_time', segment_info['end_time'] - PADDING_SECONDS)
+                    los_issue_start_time = segment_info.get('los_issue_start_time', segment_info['segment_start_time'] + PADDING_SECONDS)
+                    los_issue_end_time = segment_info.get('los_issue_end_time', segment_info['segment_end_time'] - PADDING_SECONDS)
 
-                    actual_padding_start = original_start_time - segment_info['start_time']
-                    actual_padding_end = segment_info['end_time'] - original_end_time
+                    actual_padding_start = los_issue_start_time - segment_info['segment_start_time']
+                    actual_padding_end = segment_info['segment_end_time'] - los_issue_end_time
 
-                    segment_duration = segment_info['end_time'] - segment_info['start_time']
+                    los_issue_duration = los_issue_end_time - los_issue_start_time
+
+                    segment_duration = segment_info['segment_end_time'] - segment_info['segment_start_time']
 
                     inputs = []
                     streams = []
-                    for _, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
+                    for idx, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
                         vid_path = os.path.join(video_dir, vid_file)
-                        ss = max(segment_info['start_time'] - vid_start, 0)
-                        to = min(segment_info['end_time'] - vid_start, vid_end - vid_start)
-                        input_video = ffmpeg.input(vid_path, ss=ss, to=to)
+                        ss = max(segment_info['segment_start_time'] - vid_start, 0)
+                        duration = min(segment_info['segment_end_time'], vid_end) - max(segment_info['segment_start_time'], vid_start)
+                        if duration <= 0:
+                            logging.warning(f"Invalid duration for video segment {vid_file}. Skipping.")
+                            continue
+
+                        # Adjust duration if necessary
+                        input_video = ffmpeg.input(vid_path, ss=ss, t=duration)
                         inputs.append(input_video)
                         streams.append(input_video)
+
+                    if not streams:
+                        logging.warning(f"No valid video streams found for segment {j+1}. Skipping.")
+                        continue
 
                     if len(streams) > 1:
                         video_concat = ffmpeg.concat(*streams, v=1, a=1).node
@@ -284,12 +285,12 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                         phantom_end_time = float(phantom_segment[1])
 
                         # Check if phantom_segment overlaps with current video segment
-                        if (phantom_end_time <= segment_info['start_time']) or (phantom_start_time >= segment_info['end_time']):
+                        if (phantom_end_time <= segment_info['segment_start_time']) or (phantom_start_time >= segment_info['segment_end_time']):
                             continue
-                        overlap_start = max(phantom_start_time, segment_info['start_time'])
-                        overlap_end = min(phantom_end_time, segment_info['end_time'])
-                        overlay_start_time = overlap_start - segment_info['start_time']
-                        overlay_end_time = overlap_end - segment_info['start_time']
+                        overlap_start = max(phantom_start_time, segment_info['segment_start_time'])
+                        overlap_end = min(phantom_end_time, segment_info['segment_end_time'])
+                        overlay_start_time = overlap_start - segment_info['segment_start_time']
+                        overlay_end_time = overlap_end - segment_info['segment_start_time']
 
                         video_stream = video_stream.filter(
                             'drawtext',
@@ -305,26 +306,35 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                             borderw=2,
                             bordercolor='yellow'
                         )
-
-                    start_time_str = datetime.fromtimestamp(original_start_time).strftime('%H-%M-%S')
+                    formatted_duration = f"{los_issue_duration:.2f}"
+                    video_stream = video_stream.filter(
+                        'drawtext',
+                        text=f'length: {formatted_duration}',
+                        x=10,
+                        y=10,
+                        fontsize=40,
+                        fontcolor='white',
+                        fontfile=FONT_FILE,
+                        box=1,
+                        boxcolor='black@0.5',
+                        borderw=2,
+                        bordercolor='white'
+                    )
+                    start_time_str = datetime.fromtimestamp(segment_info['segment_start_time']).strftime('%H-%M-%S')
 
                     if log_steps:
-                        original_start_time_seconds = unix_timestamp_to_seconds_since_midnight(original_start_time)
-
-                        log_step_description = find_log_step(original_start_time_seconds, log_steps)
+                        los_issue_start_time_seconds = unix_timestamp_to_seconds_since_midnight(los_issue_start_time)
+                        log_step_description = find_log_step(los_issue_start_time_seconds, log_steps)
                         if log_step_description is None:
                             log_step_label = "NoLogStep"
                         else:
-                            match = re.search(r"Step(\d+)", log_step_description)
-                            if match:
-                                log_step_label = f"Step{match.group(1)}"
-                            else:
-                                log_step_label = "UnknownStep"
+                            log_step_label = log_step_description.replace(" ", "_").replace(":", "-").replace("/", "-")
                     else:
                         log_step_label = "NoLogFile"
+
                     output_filename = os.path.join(
                         output_dir,
-                        f'segment_{j+1}_{start_time_str}_logstep_{log_step_label}.mp4'
+                        f'segment_{j+1}_{start_time_str}_{log_step_label}.mp4'
                     )
 
                     (
@@ -334,7 +344,26 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                     )
 
                     logging.info(f"Created video segment: {output_filename}")
+
+                    collect_segment_info(
+                        segment_info_list,
+                        segment_info,
+                        los_issue_duration,
+                        video_file,
+                        j,
+                        log_steps,
+                        log_step_description,
+                        los_issue_start_time
+                    )
+
                 except ffmpeg.Error as e:
                     logging.error(f"FFmpeg Error for {output_filename}: {e.stderr.decode()}")
                 except Exception as e:
                     logging.error(f"Unexpected error creating video segment {output_filename}: {e}")
+
+    if segment_info_list:
+        excel_output_path = os.path.join(results_dir, 'segment_info.xlsx')
+        generate_excel_table(segment_info_list, excel_output_path)
+        logging.info(f"Segment information written to Excel file: {excel_output_path}")
+    else:
+        logging.info("No segment information to write to Excel.")

@@ -169,32 +169,35 @@ def parse_log_file(log_content):
     steps = []
     current_step = None
 
-    log_lines = log_content.splitlines()
+    log_lines = log_content.strip().splitlines()
 
     for line in log_lines:
-        match = re.match(r'\[(\d+)\]\[(\d{2}:\d{2}:\d{2}\.\d{3})\] (.+)', line)
+        match = re.match(r'\[(\d+)\]\[(\d{2}:\d{2}:\d{2}\.\d{3})\]\s*(.+)', line)
         if match:
-            timestamp, time_str, description = match.groups()
-            timestamp = int(timestamp)
-            time_obj = datetime.strptime(time_str, "%H:%M:%S.%f")
+            timestamp_ms_str, time_str, description = match.groups()
+            timestamp_ms = int(timestamp_ms_str)
+            timestamp = timestamp_ms / 1000.0  # Convert milliseconds to seconds
 
-            start_time_seconds = time_obj.hour * 3600 + time_obj.minute * 60 + time_obj.second + time_obj.microsecond / 1e6
+            dt = datetime.fromtimestamp(timestamp)
+            seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6
 
             if current_step:
-                current_step['end_time'] = start_time_seconds
+                current_step['end_time'] = seconds_since_midnight
                 steps.append(current_step)
 
             current_step = {
-                'start_time': start_time_seconds,
-                'description': description,
+                'start_time': seconds_since_midnight,
+                'description': description.strip(),
                 'timestamp': timestamp
             }
 
     if current_step:
-        current_step['end_time'] = current_step['start_time'] + 3600
+        # Assume the last step ends at the end of the day (adjust as needed)
+        current_step['end_time'] = current_step['start_time'] + 3600  # Or some large value
         steps.append(current_step)
 
     return steps
+
 
 def unix_timestamp_to_seconds_since_midnight(timestamp):
     """
@@ -210,47 +213,22 @@ def unix_timestamp_to_seconds_since_midnight(timestamp):
     seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6
     return seconds_since_midnight
 
-def find_log_step(timestamp_seconds, log_steps):
+def find_log_step(timestamp_seconds_since_midnight, log_steps):
     """
     Finds the log step that a timestamp falls into.
 
     Parameters:
-        timestamp_seconds (float): The timestamp in seconds since midnight.
+        timestamp_seconds_since_midnight (float): The timestamp in seconds since midnight.
         log_steps (list): List of log steps, each with 'start_time' and 'end_time'.
 
     Returns:
-        str: The log step description or label, or None if not found.
+        str: The log step description, or None if not found.
     """
     for step in log_steps:
         start_time = step['start_time']
         end_time = step.get('end_time', None)
         if end_time is None:
-            continue 
-        if start_time <= timestamp_seconds <= end_time:
+            continue
+        if start_time <= timestamp_seconds_since_midnight < end_time:
             return step['description']
     return None
-
-def get_log_steps(log_file_path):
-    """
-    Retrieves log steps and their durations from a parsed log file.
-
-    Parameters:
-        log_file_path (str): Path to the log file.
-
-    Returns:
-        list: A list of steps with their descriptions, start and end times.
-    """
-    steps = parse_log_file(log_file_path)
-    step_durations = []
-
-    for step in steps:
-        start_time = datetime.fromtimestamp(step['start_time']).strftime('%H:%M:%S.%f')
-        end_time = datetime.fromtimestamp(step['end_time']).strftime('%H:%M:%S.%f') if 'end_time' in step else 'Ongoing'
-        description = step['description']
-        step_durations.append({
-            'description': description,
-            'start_time': start_time,
-            'end_time': end_time
-        })
-
-    return step_durations
