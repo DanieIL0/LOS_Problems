@@ -28,20 +28,16 @@ logging.basicConfig(
 
 logging.info("Starting the script") 
 
-try:
-    os.makedirs(RESULTS_DIR_VID, exist_ok=True)
-    segments_to_cut = process_telescope_transforms(ROSBAG_DATA_PATH)
-    segments_of_missing_phantom_transform = process_phantom_transforms(ROSBAG_DATA_PATH)
-
-    if segments_to_cut:
-        cut_video_segments(segments_to_cut, segments_of_missing_phantom_transform, VIDEO_DIR, RESULTS_DIR_VID)
-    else:
-        logging.info("No segments found")
-except Exception as e:
-    logging.error(f"An error occurred: {e}")
-finally:
-    logging.info("Script ended")
-    sys.stdout = old_stdout 
-    sys.stderr = old_stderr 
-    log_file.close()
-    print(f"Script ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
+os.makedirs(RESULTS_DIR_VID, exist_ok=True)
+segments_to_cut = process_telescope_transforms(ROSBAG_DATA_PATH)
+segments_of_missing_phantom_transform = process_phantom_transforms(ROSBAG_DATA_PATH)
+if segments_to_cut:
+    cut_video_segments(segments_to_cut, segments_of_missing_phantom_transform, VIDEO_DIR, RESULTS_DIR_VID)
+else:
+    logging.info("No segments found")
+logging.info("Script ended")
+logging.shutdown() 
+sys.stdout = old_stdout 
+sys.stderr = old_stderr 
+log_file.close()
+print(f"Script ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")

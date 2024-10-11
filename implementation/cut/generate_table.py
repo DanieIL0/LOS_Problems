@@ -1,12 +1,12 @@
-import pandas as pd
-import openpyxl
+from openpyxl import load_workbook
 from datetime import datetime
+import pandas as pd
 
 def collect_segment_info(
     segment_info_list,
     segment_info,
     los_issue_duration,
-    video_file,
+    _,
     segment_index,
     log_steps,
     log_step_description,
@@ -25,7 +25,6 @@ def collect_segment_info(
         log_step_description (str): Description of the log step.
         los_issue_start_time (float): Start time of the LOS issue.
     """
-    # Extract video input details
     origin_videos_info = []
     for vid_file, vid_start, vid_end in segment_info['video_inputs']:
         origin_videos_info.append({
@@ -36,11 +35,6 @@ def collect_segment_info(
 
     origin_videos = [info['vid_file'] for info in origin_videos_info]
     origin_videos_str = '+'.join(origin_videos)
-
-    vid_starts = [datetime.fromtimestamp(info['vid_start']).strftime('%H:%M:%S') for info in origin_videos_info]
-    vid_starts_str = '+'.join(vid_starts)
-    vid_ends = [datetime.fromtimestamp(info['vid_end']).strftime('%H:%M:%S') for info in origin_videos_info]
-    vid_ends_str = '+'.join(vid_ends)
 
     segment_number = segment_index + 1
 
@@ -65,14 +59,10 @@ def collect_segment_info(
     else:
         step_length_mmss = 'NaN'
 
-    # Format los_issue_start_time
     los_issue_start_time_str = datetime.fromtimestamp(los_issue_start_time).strftime('%H:%M:%S')
 
-    # Append the collected data to the list
     segment_info_list.append({
         'Origin Video': origin_videos_str,
-        'Video Start Time(s)': vid_starts_str,
-        'Video End Time(s)': vid_ends_str,
         'Segment': segment_number,
         'Day': day,
         'Start Time (CET)': start_time_cet,
@@ -83,7 +73,6 @@ def collect_segment_info(
         'Reason': ''  # Placeholder,
     })
 
-
 def generate_excel_table(segment_info_list, excel_output_path):
     """
     Generates an Excel table from the segment information list.
@@ -93,4 +82,34 @@ def generate_excel_table(segment_info_list, excel_output_path):
         excel_output_path (str): Path where the Excel file will be saved.
     """
     df = pd.DataFrame(segment_info_list)
-    df.to_excel(excel_output_path, index=False)
+    df.to_excel(excel_output_path, index=False, engine='openpyxl')
+
+    wb = load_workbook(excel_output_path)
+    ws = wb.active
+
+    column_letters = {}
+    for cell in ws[1]:
+        column_letters[cell.value] = cell.column_letter
+
+    if 'Origin Video' in column_letters:
+        origin_video_column = column_letters['Origin Video']
+        current_width = ws.column_dimensions[origin_video_column].width
+        if current_width is None:
+            current_width = 8
+        ws.column_dimensions[origin_video_column].width = 52
+
+    if 'Reason' in column_letters:
+        reason_column = column_letters['Reason']
+        current_width = ws.column_dimensions[reason_column].width
+        if current_width is None:
+            current_width = 8
+        ws.column_dimensions[reason_column].width = 60
+
+    if 'Performed Step' in column_letters:
+        performed_step_column = column_letters['Performed Step']
+        current_width = ws.column_dimensions[performed_step_column].width
+        if current_width is None:
+            current_width = 8
+        ws.column_dimensions[performed_step_column].width = 45
+
+    wb.save(excel_output_path)

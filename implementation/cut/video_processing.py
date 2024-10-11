@@ -225,7 +225,6 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                             logging.warning(f"Invalid duration for video segment {vid_file}. Skipping.")
                             continue
 
-                        # Adjust duration if necessary
                         input_video = ffmpeg.input(vid_path, ss=ss, t=duration)
                         inputs.append(input_video)
                         streams.append(input_video)
