@@ -3,45 +3,7 @@ from datetime import datetime
 import re
 import subprocess
 
-def is_noisy(data, threshold):
-    """
-    Determines if data is noisy based on a standard deviation threshold.
-
-    Parameters:
-        data (array-like): The data to evaluate.
-        threshold (float): The standard deviation threshold for noise.
-
-    Returns:
-        bool: True if the data is considered noisy, False otherwise.
-    """
-    return np.std(data) > threshold
-
-def smooth_data(data, window_size):
-    """
-    Smoothes the data using a rolling mean.
-
-    Parameters:
-        data (pandas.Series): The data to smooth.
-        window_size (int): The window size for the rolling mean.
-
-    Returns:
-        pandas.Series: Smoothed data.
-    """
-    return data.rolling(window=window_size).mean()
-
-def rescale_data(data):
-    """
-    Rescales the data to the range [0, 1].
-
-    Parameters:
-        data (pandas.Series): The data to rescale.
-
-    Returns:
-        pandas.Series: Rescaled data.
-    """
-    return (data - data.min()) / (data.max() - data.min())
-
-def convert_to_timestamp(time_str, reference_date='2021-09-28'):
+def convert_to_timestamp(time_str, reference_date):
     """
     Converts a time string to a timestamp.
 
@@ -55,24 +17,25 @@ def convert_to_timestamp(time_str, reference_date='2021-09-28'):
     datetime_str = f"{reference_date} {time_str}"
     datetime_obj = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
     timestamp = int(datetime_obj.timestamp())
-    return timestamp
+    return timestamp    
 
 def process_timeframes(timeframes):
     """
     Processes timeframes into a list of start and end timestamps.
 
     Parameters:
-        timeframes (list): List of timeframes as strings in the format "start_time - end_time".
+        timeframes (dict): Dictionary where keys are dates (YYYY-MM-DD), and values are lists of timeframes as strings in the format "start_time - end_time".
 
     Returns:
         list: List of tuples with start and end timestamps.
     """
     timestamps = []
-    for timeframe in timeframes:
-        start_time, end_time = timeframe.split(' - ')
-        start_timestamp = convert_to_timestamp(start_time)
-        end_timestamp = convert_to_timestamp(end_time)
-        timestamps.append((start_timestamp, end_timestamp))
+    for date_str, time_ranges in timeframes.items():
+        for timeframe in time_ranges:
+            start_time, end_time = timeframe.split(' - ')
+            start_timestamp = convert_to_timestamp(start_time, reference_date=date_str)
+            end_timestamp = convert_to_timestamp(end_time, reference_date=date_str)
+            timestamps.append((start_timestamp, end_timestamp))
     return timestamps
 
 def get_video_metadata(video_dir):

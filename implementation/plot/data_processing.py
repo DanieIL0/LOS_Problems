@@ -4,6 +4,12 @@ from bagpy import bagreader
 from ..shared.config import ROSBAG_DATA_PATH, RESULTS_DIR_PLOT, TIMEFRAMES
 from ..shared.utils import process_timeframes
 
+import os
+import pandas as pd
+from bagpy import bagreader
+from ..shared.config import ROSBAG_DATA_PATH, RESULTS_DIR_PLOT, TIMEFRAMES
+from ..shared.utils import process_timeframes
+
 def extract_data_from_bag():
     """
     Extracts data from ROS bag files and processes AR tracking data within specific timeframes.
@@ -32,34 +38,41 @@ def extract_data_from_bag():
                 ar_tracking_df.to_csv(ar_tracking_output, index=False)
                 print(f"Data from /ARTracking saved to {ar_tracking_output}")
 
-                ar_tracking_df['Time'] = ar_tracking_df['Time'].astype(float)
+                # Combine 'header.stamp.secs' and 'header.stamp.nsecs' to get UNIX timestamp
+                ar_tracking_df['timestamp'] = ar_tracking_df['header.stamp.secs'] + ar_tracking_df['header.stamp.nsecs'] / 1e9
 
-                # Filter data out
+                # Filter data within the specified timeframes
                 filtered_data = pd.DataFrame()
                 for start_timestamp, end_timestamp in timestamps:
                     time_filtered_df = ar_tracking_df[
-                        (ar_tracking_df['Time'] >= start_timestamp) & 
-                        (ar_tracking_df['Time'] <= end_timestamp)
+                        (ar_tracking_df['timestamp'] >= start_timestamp) & 
+                        (ar_tracking_df['timestamp'] <= end_timestamp)
                     ]
-                    filtered_data = pd.concat([filtered_data, time_filtered_df])
+                    filtered_data = pd.concat([filtered_data, time_filtered_df], ignore_index=True)
 
                 if filtered_data.empty:
                     continue
 
-                current_min_timestamp = filtered_data['Time'].min()
-                current_max_timestamp = filtered_data['Time'].max()
+                current_min_timestamp = filtered_data['timestamp'].min()
+                current_max_timestamp = filtered_data['timestamp'].max()
                 if min_timestamp is None or current_min_timestamp < min_timestamp:
                     min_timestamp = current_min_timestamp
                 if max_timestamp is None or current_max_timestamp > max_timestamp:
                     max_timestamp = current_max_timestamp
 
+                telescope_data = filtered_data[filtered_data['header.frame_id'] == 'telescopeMarkerTransform']
+                phantom_data = filtered_data[filtered_data['header.frame_id'] == 'phantomMarkerTransform']
+
+                telescope_missing_percentage = telescope_data['pose.position.x'].eq(0).mean() * 100 if not telescope_data.empty else 100.0
+                phantom_missing_percentage = phantom_data['pose.position.x'].eq(0).mean() * 100 if not phantom_data.empty else 100.0
+
                 summary_data.append({
                     'File': rosbag_file,
                     'Total Points': len(filtered_data),
-                    'Total Telescope Points': len(filtered_data[filtered_data['header.frame_id'] == 'telescopeMarkerTransform']),
-                    'Total Phantom Points': len(filtered_data[filtered_data['header.frame_id'] == 'phantomMarkerTransform']),
-                    'Telescope Missing Percentage': filtered_data['pose.position.x'].eq(0).mean() * 100,
-                    'Phantom Missing Percentage': filtered_data['pose.position.x'].eq(0).mean() * 100,
+                    'Total Telescope Points': len(telescope_data),
+                    'Total Phantom Points': len(phantom_data),
+                    'Telescope Missing Percentage': telescope_missing_percentage,
+                    'Phantom Missing Percentage': phantom_missing_percentage,
                     'Data Available': True
                 })
 

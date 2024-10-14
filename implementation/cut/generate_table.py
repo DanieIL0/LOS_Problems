@@ -40,7 +40,6 @@ def collect_segment_info(
 
     segment_start_datetime = datetime.fromtimestamp(segment_info['segment_start_time'])
     day = segment_start_datetime.strftime('%d/%m/%Y')
-    start_time_cet = segment_start_datetime.strftime('%H:%M:%S')
 
     length_secs = los_issue_duration
 
@@ -65,12 +64,11 @@ def collect_segment_info(
         'Origin Video': origin_videos_str,
         'Segment': segment_number,
         'Day': day,
-        'Start Time (CET)': start_time_cet,
         'LOS Issue Start Time': los_issue_start_time_str,
         'Length (secs)': f"{length_secs:.2f}",
         'Performed Step': performed_step,
         'Length of step (mm:ss)': step_length_mmss,
-        'Reason': ''  # Placeholder,
+        'Reason': '' 
     })
 
 def generate_excel_table(segment_info_list, excel_output_path):
