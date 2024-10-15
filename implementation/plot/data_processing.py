@@ -4,12 +4,6 @@ from bagpy import bagreader
 from ..shared.config import ROSBAG_DATA_PATH, RESULTS_DIR_PLOT, TIMEFRAMES
 from ..shared.utils import process_timeframes
 
-import os
-import pandas as pd
-from bagpy import bagreader
-from ..shared.config import ROSBAG_DATA_PATH, RESULTS_DIR_PLOT, TIMEFRAMES
-from ..shared.utils import process_timeframes
-
 def extract_data_from_bag():
     """
     Extracts data from ROS bag files and processes AR tracking data within specific timeframes.

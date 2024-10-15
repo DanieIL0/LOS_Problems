@@ -1,16 +1,17 @@
 from openpyxl import load_workbook
 from datetime import datetime
 import pandas as pd
+import os
 
 def collect_segment_info(
     segment_info_list,
     segment_info,
     los_issue_duration,
-    _,
     segment_index,
     log_steps,
     log_step_description,
-    los_issue_start_time
+    los_issue_start_time,
+    trial_number
 ):
     """
     Collects information about a video segment and appends it to the segment_info_list.
@@ -19,11 +20,11 @@ def collect_segment_info(
         segment_info_list (list): List to store segment information dictionaries.
         segment_info (dict): Information about the current segment.
         los_issue_duration (float): Duration of the LOS issue.
-        video_file (str): Original video file name.
         segment_index (int): Index of the segment.
         log_steps (list): List of parsed log steps.
         log_step_description (str): Description of the log step.
         los_issue_start_time (float): Start time of the LOS issue.
+        trial_number (int): The trial number.
     """
     origin_videos_info = []
     for vid_file, vid_start, vid_end in segment_info['video_inputs']:
@@ -61,6 +62,7 @@ def collect_segment_info(
     los_issue_start_time_str = datetime.fromtimestamp(los_issue_start_time).strftime('%H:%M:%S')
 
     segment_info_list.append({
+        'Trial': trial_number,
         'Origin Video': origin_videos_str,
         'Segment': segment_number,
         'Day': day,
@@ -71,43 +73,40 @@ def collect_segment_info(
         'Reason': '' 
     })
 
+
 def generate_excel_table(segment_info_list, excel_output_path):
     """
     Generates an Excel table from the segment information list.
+    If the Excel file already exists, it appends the new data to it.
 
     Parameters:
         segment_info_list (list): List of dictionaries containing segment information.
         excel_output_path (str): Path where the Excel file will be saved.
     """
-    df = pd.DataFrame(segment_info_list)
+    new_df = pd.DataFrame(segment_info_list)
+
+    if os.path.exists(excel_output_path):
+        existing_df = pd.read_excel(excel_output_path, engine='openpyxl')
+        df = pd.concat([existing_df, new_df], ignore_index=True)
+    else:
+        df = new_df
     df.to_excel(excel_output_path, index=False, engine='openpyxl')
 
     wb = load_workbook(excel_output_path)
     ws = wb.active
 
-    column_letters = {}
-    for cell in ws[1]:
-        column_letters[cell.value] = cell.column_letter
+    column_letters = {cell.value: cell.column_letter for cell in ws[1]}
 
     if 'Origin Video' in column_letters:
         origin_video_column = column_letters['Origin Video']
-        current_width = ws.column_dimensions[origin_video_column].width
-        if current_width is None:
-            current_width = 8
         ws.column_dimensions[origin_video_column].width = 52
 
     if 'Reason' in column_letters:
         reason_column = column_letters['Reason']
-        current_width = ws.column_dimensions[reason_column].width
-        if current_width is None:
-            current_width = 8
         ws.column_dimensions[reason_column].width = 60
 
     if 'Performed Step' in column_letters:
         performed_step_column = column_letters['Performed Step']
-        current_width = ws.column_dimensions[performed_step_column].width
-        if current_width is None:
-            current_width = 8
         ws.column_dimensions[performed_step_column].width = 45
 
     wb.save(excel_output_path)

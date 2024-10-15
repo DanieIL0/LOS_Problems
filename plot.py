@@ -5,6 +5,7 @@ from implementation.plot.data_processing import extract_data_from_bag
 from implementation.plot.plotting import plot_data
 
 # Run the data extraction and processing
+os.makedirs(RESULTS_DIR_PLOT, exist_ok=True)
 summary_data, min_timestamp, max_timestamp = extract_data_from_bag()
 
 # Create a summary DataFrame and save it

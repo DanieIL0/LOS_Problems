@@ -5,34 +5,45 @@ Defines various configuration settings for file paths and processing parameters.
 """
 
 CURRENT_DIRECTORY = os.getcwd()
-ROSBAG_DATA_PATH = os.path.join(CURRENT_DIRECTORY, '..', 'ROSbag') 
 RESULTS_DIR_VID = os.path.join(CURRENT_DIRECTORY, 'cut_videos')
 RESULTS_DIR_PLOT = os.path.join(CURRENT_DIRECTORY, 'plots')
-VIDEO_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Videos')
-LOG_FILE_DIR = os.path.join(CURRENT_DIRECTORY, '..', 'Annotations')
-
-LOG_FILES = [
-    filename for filename in os.listdir(LOG_FILE_DIR)
-    if os.path.isfile(os.path.join(LOG_FILE_DIR, filename)) and filename.endswith('.log')
-]
-
-LOG_FILE = ""
-
-if LOG_FILES:
-    for log_file in LOG_FILES:
-        log_file_path = os.path.join(LOG_FILE_DIR, log_file)
-        with open(log_file_path, 'r') as file:
-            LOG_FILE += file.read() + "\n"
-else:
-    concatenated_logs = None
-
 FONT_FILE = 'ARIAL.TTF'
 
-if not os.path.exists(RESULTS_DIR_VID):
-    os.makedirs(RESULTS_DIR_VID)
+TRIAL_DIRS = [
+    '210810_animal_trial_01',
+    '210824_animal_trial_02',
+    '210914_animal_trial_03',
+    '210928_animal_trial_04',
+    '211012_animal_trial_05',
+    '211019_animal_trial_06',
+    '211026_animal_trial_07',
+    '211102_animal_trial_08',
+    '211109_animal_trial_09',
+    '211116_animal_trial_10',
+    '211123_animal_trial_11',
+    '211130_animal_trial_12',
+    '211130_animal_trial_13',
+    '211207_animal_trial_14',
+    '211209_animal_trial_15',
+    '211210_animal_trial_16',
+    '211214_animal_trial_17',
+    '211215_animal_trial_18',
+]
 
-if not os.path.exists(RESULTS_DIR_PLOT):
-    os.makedirs(RESULTS_DIR_PLOT)
+DATA_PATHS = [
+    {
+        'ROSBAG_DATA_PATH': os.path.join(
+            CURRENT_DIRECTORY, '..', 'dataset', '03_animal_trial', trial_dir, 'atlas', 'Rosbag'
+        ),
+        'VIDEO_DIR': os.path.join(
+            CURRENT_DIRECTORY, '..', 'dataset', '03_animal_trial', trial_dir, 'atlas', 'VideosCompressed'
+        ),
+        'LOG_FILE_DIR': os.path.join(
+            CURRENT_DIRECTORY, '..', 'dataset', '03_animal_trial', trial_dir, 'atlas', 'Annotations'
+        ),
+    }
+    for trial_dir in TRIAL_DIRS
+]
 
 MIN_DURATION = 2
 THRESHOLD_PERCENTAGE = 90
@@ -40,12 +51,7 @@ WINDOW_SIZE = 60
 
 PADDING_SECONDS = 1.5
 PHANTOM_THRESHOLD_PERCENTAGE = 80
-PHANTOM_WINDOW_SIZE = 1
-
-VIDEO_FILES = [
-    filename for filename in os.listdir(VIDEO_DIR)
-    if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and 'Room' in filename
-]
+PHANTOM_WINDOW_SIZE = 60
 
 TIMEFRAMES = {
     '2021-08-11': [  # 01 7:45:29
@@ -100,23 +106,23 @@ TIMEFRAMES = {
 
     ],
 
-    '2021-12-07': [  # 14
+    '2021-12-07': [  # 14 06:11:27
 
     ],
 
-    '2021-12-09': [  # 15
+    '2021-12-09': [  # 15 7:26:23
 
     ],
 
-    '2021-12-10': [  # 16
+    '2021-12-10': [  # 16 05:32:59
 
     ],
 
-    '2021-12-14': [  # 17
+    '2021-12-14': [  # 17 06:44:20
 
     ],
 
-    '2021-12-15': [  # 18
+    '2021-12-15': [  # 18 07:28:56
 
     ]
 }

@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime
 import logging
-from implementation.shared.config import VIDEO_DIR, RESULTS_DIR_VID, ROSBAG_DATA_PATH
+from implementation.shared.config import DATA_PATHS, RESULTS_DIR_VID
 from implementation.cut.rosbag_processing import process_telescope_transforms, process_phantom_transforms
 from implementation.cut.video_processing import cut_video_segments
 
@@ -18,7 +18,7 @@ old_stderr = sys.stderr
 log_file = open(log_file_path, 'a')
 
 sys.stdout = log_file
-sys.stderr = log_file 
+sys.stderr = log_file
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,18 +26,75 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-logging.info("Starting the script") 
+logging.info("Starting the script")
 
 os.makedirs(RESULTS_DIR_VID, exist_ok=True)
-segments_to_cut = process_telescope_transforms(ROSBAG_DATA_PATH)
-segments_of_missing_phantom_transform = process_phantom_transforms(ROSBAG_DATA_PATH)
-if segments_to_cut:
-    cut_video_segments(segments_to_cut, segments_of_missing_phantom_transform, VIDEO_DIR, RESULTS_DIR_VID)
-else:
-    logging.info("No segments found")
+
+trial_number = 1
+
+for trial_data in DATA_PATHS:
+    ROSBAG_DATA_PATH = trial_data['ROSBAG_DATA_PATH']
+    VIDEO_DIR = trial_data['VIDEO_DIR']
+    LOG_FILE_DIR = trial_data['LOG_FILE_DIR']
+
+    logging.info(f"Processing trial {trial_number}")
+
+    if not os.path.exists(VIDEO_DIR):
+        logging.warning(f"Video directory {VIDEO_DIR} does not exist for trial {trial_number}. Skipping trial.")
+        trial_number += 1
+        continue
+
+    VIDEO_FILES = [
+        filename for filename in os.listdir(VIDEO_DIR)
+        if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and 'Room' in filename
+    ]
+
+    if not VIDEO_FILES:
+        logging.warning(f"No video files found in {VIDEO_DIR} for trial {trial_number}")
+        trial_number += 1
+        continue
+
+    if not os.path.exists(LOG_FILE_DIR):
+        logging.warning(f"Log file directory {LOG_FILE_DIR} does not exist for trial {trial_number}. Skipping trial.")
+        trial_number += 1
+        continue
+
+    LOG_FILES = [
+        filename for filename in os.listdir(LOG_FILE_DIR)
+        if os.path.isfile(os.path.join(LOG_FILE_DIR, filename)) and filename.endswith('.log')
+    ]
+
+    LOG_FILE_CONTENT = ""
+
+    if LOG_FILES:
+        for log_file_name in LOG_FILES:
+            log_file_path = os.path.join(LOG_FILE_DIR, log_file_name)
+            with open(log_file_path, 'r') as file:
+                LOG_FILE_CONTENT += file.read() + "\n"
+    else:
+        LOG_FILE_CONTENT = None
+
+    segments_to_cut = process_telescope_transforms(ROSBAG_DATA_PATH)
+    segments_of_missing_phantom_transform = process_phantom_transforms(ROSBAG_DATA_PATH)
+
+    if segments_to_cut:
+        cut_video_segments(
+            segments_to_cut,
+            segments_of_missing_phantom_transform,
+            VIDEO_DIR,
+            RESULTS_DIR_VID,
+            trial_number,
+            LOG_FILE_CONTENT,
+            VIDEO_FILES
+        )
+    else:
+        logging.info(f"No segments found for trial {trial_number}")
+
+    trial_number += 1
+
 logging.info("Script ended")
-logging.shutdown() 
-sys.stdout = old_stdout 
-sys.stderr = old_stderr 
+logging.shutdown()
+sys.stdout = old_stdout
+sys.stderr = old_stderr
 log_file.close()
 print(f"Script ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")

@@ -3,7 +3,7 @@ import ffmpeg
 import logging
 from datetime import datetime
 from dateutil.parser import parse
-from ..shared.config import VIDEO_FILES, MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, LOG_FILE
+from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
 from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 from ..cut.generate_table import generate_excel_table, collect_segment_info
 
@@ -151,7 +151,6 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
                 segment_end_time = video_end_time
 
         if segment_end_time <= segment_start_time:
-            logging.warning(f"Segment end time {segment_end_time} is not after start time {segment_start_time}. Skipping segment.")
             continue
 
         segment_info = {
@@ -165,7 +164,7 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
 
     return correlated_times
 
-def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
+def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_number, LOG_FILE, VIDEO_FILES):
     """
     Cuts video segments from given videos and adds overlays.
 
@@ -174,6 +173,9 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
         phantom_missing (list): List of phantom missing segments.
         video_dir (str): Directory containing the video files.
         results_dir (str): Directory for the output of the cut videos.
+        trial_number (int): The trial number.
+        LOG_FILE (str): The concatenated log file content.
+        VIDEO_FILES (list): List of video files for the current trial.
     """
     if LOG_FILE:
         log_steps = parse_log_file(LOG_FILE)
@@ -186,7 +188,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
 
     for start_time, videos in grouped_videos.items():
         folder_name = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d_%H-%M-%S')
-        output_dir = os.path.join(results_dir, folder_name)
+        output_dir = os.path.join(results_dir, f"Trial_{trial_number}", folder_name)
         os.makedirs(output_dir, exist_ok=True)
 
         for video_file in videos:
@@ -348,11 +350,11 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir):
                         segment_info_list,
                         segment_info,
                         los_issue_duration,
-                        video_file,
                         j,
                         log_steps,
                         log_step_description,
-                        los_issue_start_time
+                        los_issue_start_time,
+                        trial_number
                     )
 
                 except ffmpeg.Error as e:
