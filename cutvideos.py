@@ -35,13 +35,15 @@ trial_number = 1
 for trial_data in DATA_PATHS:
     ROSBAG_DATA_PATH = trial_data['ROSBAG_DATA_PATH']
     VIDEO_DIR = trial_data['VIDEO_DIR']
-    LOG_FILE_DIR = trial_data['LOG_FILE_DIR']
+    LOG_FILE_DIR = trial_data.get('LOG_FILE_DIR')
+    pretrial = trial_data['pretrial']
+    trial_number = trial_data['trial_number']
+    trial_type = trial_data['trial_type']
 
     logging.info(f"Processing trial {trial_number}")
 
     if not os.path.exists(VIDEO_DIR):
         logging.warning(f"Video directory {VIDEO_DIR} does not exist for trial {trial_number}. Skipping trial.")
-        trial_number += 1
         continue
 
     VIDEO_FILES = [
@@ -51,28 +53,26 @@ for trial_data in DATA_PATHS:
 
     if not VIDEO_FILES:
         logging.warning(f"No video files found in {VIDEO_DIR} for trial {trial_number}")
-        trial_number += 1
         continue
 
-    if not os.path.exists(LOG_FILE_DIR):
-        logging.warning(f"Log file directory {LOG_FILE_DIR} does not exist for trial {trial_number}. Skipping trial.")
-        trial_number += 1
-        continue
+    if not pretrial and LOG_FILE_DIR and os.path.exists(LOG_FILE_DIR):
+        LOG_FILES = [
+            filename for filename in os.listdir(LOG_FILE_DIR)
+            if os.path.isfile(os.path.join(LOG_FILE_DIR, filename)) and filename.endswith('.log')
+        ]
 
-    LOG_FILES = [
-        filename for filename in os.listdir(LOG_FILE_DIR)
-        if os.path.isfile(os.path.join(LOG_FILE_DIR, filename)) and filename.endswith('.log')
-    ]
+        LOG_FILE_CONTENT = ""
 
-    LOG_FILE_CONTENT = ""
-
-    if LOG_FILES:
-        for log_file_name in LOG_FILES:
-            log_file_path = os.path.join(LOG_FILE_DIR, log_file_name)
-            with open(log_file_path, 'r') as file:
-                LOG_FILE_CONTENT += file.read() + "\n"
+        if LOG_FILES:
+            for log_file_name in LOG_FILES:
+                log_file_path = os.path.join(LOG_FILE_DIR, log_file_name)
+                with open(log_file_path, 'r') as file:
+                    LOG_FILE_CONTENT += file.read() + "\n"
+        else:
+            LOG_FILE_CONTENT = None
     else:
         LOG_FILE_CONTENT = None
+        logging.info(f"No annotations available for trial {trial_number}.")
 
     segments_to_cut = process_telescope_transforms(ROSBAG_DATA_PATH)
     segments_of_missing_phantom_transform = process_phantom_transforms(ROSBAG_DATA_PATH)
@@ -85,12 +85,13 @@ for trial_data in DATA_PATHS:
             RESULTS_DIR_VID,
             trial_number,
             LOG_FILE_CONTENT,
-            VIDEO_FILES
+            VIDEO_FILES,
+            pretrial,
+            trial_type
         )
     else:
         logging.info(f"No segments found for trial {trial_number}")
 
-    trial_number += 1
 
 logging.info("Script ended")
 logging.shutdown()

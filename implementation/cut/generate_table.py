@@ -11,7 +11,9 @@ def collect_segment_info(
     log_steps,
     log_step_description,
     los_issue_start_time,
-    trial_number
+    trial_number,
+    pretrial,
+    trial_type
 ):
     """
     Collects information about a video segment and appends it to the segment_info_list.
@@ -24,7 +26,9 @@ def collect_segment_info(
         log_steps (list): List of parsed log steps.
         log_step_description (str): Description of the log step.
         los_issue_start_time (float): Start time of the LOS issue.
-        trial_number (int): The trial number.
+        trial_number (str): The trial number extracted from the directory name.
+        pretrial (bool): Indicates if it's a pretrial.
+        trial_type (str): The trial type extracted from the directory name.
     """
     origin_videos_info = []
     for vid_file, vid_start, vid_end in segment_info['video_inputs']:
@@ -34,7 +38,7 @@ def collect_segment_info(
             'vid_end': vid_end
         })
 
-    origin_videos = [info['vid_file'] for info in origin_videos_info]
+    origin_videos = [info['vid_file'].replace('Room', '*') for info in origin_videos_info]
     origin_videos_str = '+'.join(origin_videos)
 
     segment_number = segment_index + 1
@@ -44,35 +48,42 @@ def collect_segment_info(
 
     length_secs = los_issue_duration
 
-    performed_step = log_step_description if log_step_description else 'NaN'
+    if pretrial or log_steps is None or log_step_description is None:
+        performed_step = ''
+        step_length_mmss = ''
+    else:
+        performed_step = log_step_description if log_step_description else 'NaN'
 
-    if log_steps and log_step_description:
-        for step in log_steps:
-            if step['description'] == log_step_description:
-                step_length_secs = step['end_time'] - step['start_time']
-                minutes = int(step_length_secs // 60)
-                seconds = int(step_length_secs % 60)
-                step_length_mmss = f"{minutes}:{seconds:02d}"
-                break
+        if log_steps and log_step_description:
+            for step in log_steps:
+                if step['description'] == log_step_description:
+                    step_length_secs = step['end_time'] - step['start_time']
+                    minutes = int(step_length_secs // 60)
+                    seconds = int(step_length_secs % 60)
+                    step_length_mmss = f"{minutes}:{seconds:02d}"
+                    break
+            else:
+                step_length_mmss = 'NaN'
         else:
             step_length_mmss = 'NaN'
-    else:
-        step_length_mmss = 'NaN'
 
     los_issue_start_time_str = datetime.fromtimestamp(los_issue_start_time).strftime('%H:%M:%S')
 
-    segment_info_list.append({
-        'Trial': trial_number,
-        'Origin Video': origin_videos_str,
+    segment_data = {
+        'Pretrial': pretrial,
+        'Trial': trial_type,
+        'Trial Number': trial_number,
+        'Original Videos': origin_videos_str,
         'Segment': segment_number,
         'Day': day,
         'LOS Issue Start Time': los_issue_start_time_str,
         'Length (secs)': f"{length_secs:.2f}",
         'Performed Step': performed_step,
         'Length of step (mm:ss)': step_length_mmss,
-        'Reason': '' 
-    })
+        'Reason': ''
+    }
 
+    segment_info_list.append(segment_data)
 
 def generate_excel_table(segment_info_list, excel_output_path):
     """
@@ -97,9 +108,9 @@ def generate_excel_table(segment_info_list, excel_output_path):
 
     column_letters = {cell.value: cell.column_letter for cell in ws[1]}
 
-    if 'Origin Video' in column_letters:
-        origin_video_column = column_letters['Origin Video']
-        ws.column_dimensions[origin_video_column].width = 52
+    if 'Origin Videos' in column_letters:
+        origin_video_column = column_letters['Origin Videos']
+        ws.column_dimensions[origin_video_column].width = 45
 
     if 'Reason' in column_letters:
         reason_column = column_letters['Reason']

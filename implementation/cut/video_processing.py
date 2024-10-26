@@ -164,7 +164,17 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
 
     return correlated_times
 
-def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_number, LOG_FILE, VIDEO_FILES):
+def cut_video_segments(
+    segments,
+    phantom_missing,
+    video_dir,
+    results_dir,
+    trial_number,
+    LOG_FILE,
+    VIDEO_FILES,
+    pretrial,
+    trial_type
+):
     """
     Cuts video segments from given videos and adds overlays.
 
@@ -173,14 +183,16 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_
         phantom_missing (list): List of phantom missing segments.
         video_dir (str): Directory containing the video files.
         results_dir (str): Directory for the output of the cut videos.
-        trial_number (int): The trial number.
+        trial_number (str): The trial number extracted from the directory name.
         LOG_FILE (str): The concatenated log file content.
         VIDEO_FILES (list): List of video files for the current trial.
+        pretrial (bool): Indicates if it's a pretrial.
+        trial_type (str): The trial type extracted from the directory name.
     """
-    if LOG_FILE:
+    if LOG_FILE and not pretrial:
         log_steps = parse_log_file(LOG_FILE)
     else:
-        logging.warning("No log file found. Skipping log step annotations.")
+        logging.warning("No log file found or pretrial data. Skipping log step annotations.")
         log_steps = None
 
     grouped_videos = group_videos_by_start_time(VIDEO_FILES, video_dir)
@@ -280,12 +292,10 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_
                             bordercolor='white'
                         )
 
-                    # Overlay "Phantom transforms missing" when the timeframe overlaps with phantom_missing segments
                     for phantom_segment in phantom_missing:
                         phantom_start_time = float(phantom_segment[0])
                         phantom_end_time = float(phantom_segment[1])
 
-                        # Check if phantom_segment overlaps with current video segment
                         if (phantom_end_time <= segment_info['segment_start_time']) or (phantom_start_time >= segment_info['segment_end_time']):
                             continue
                         overlap_start = max(phantom_start_time, segment_info['segment_start_time'])
@@ -323,7 +333,7 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_
                     )
                     start_time_str = datetime.fromtimestamp(segment_info['segment_start_time']).strftime('%H-%M-%S')
 
-                    if log_steps:
+                    if log_steps and not pretrial:
                         los_issue_start_time_seconds = unix_timestamp_to_seconds_since_midnight(los_issue_start_time)
                         log_step_description = find_log_step(los_issue_start_time_seconds, log_steps)
                         if log_step_description is None:
@@ -331,7 +341,8 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_
                         else:
                             log_step_label = log_step_description.replace(" ", "_").replace(":", "-").replace("/", "-")
                     else:
-                        log_step_label = "NoLogFile"
+                        log_step_description = ''
+                        log_step_label = "NoAnnotations"
 
                     output_filename = os.path.join(
                         output_dir,
@@ -346,6 +357,11 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_
 
                     logging.info(f"Created video segment: {output_filename}")
 
+                    segment_info['video_inputs'] = [
+                        (vid_file.replace('Room', '*'), vid_start, vid_end)
+                        for vid_file, vid_start, vid_end in segment_info['video_inputs']
+                    ]
+
                     collect_segment_info(
                         segment_info_list,
                         segment_info,
@@ -354,7 +370,9 @@ def cut_video_segments(segments, phantom_missing, video_dir, results_dir, trial_
                         log_steps,
                         log_step_description,
                         los_issue_start_time,
-                        trial_number
+                        trial_number,
+                        pretrial,
+                        trial_type
                     )
 
                 except ffmpeg.Error as e:
