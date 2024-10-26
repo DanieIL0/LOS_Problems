@@ -201,7 +201,8 @@ def cut_video_segments(
     for start_time, videos in grouped_videos.items():
         folder_name = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d_%H-%M-%S')
         output_dir = os.path.join(results_dir, f"Trial_{trial_number}", folder_name)
-        os.makedirs(output_dir, exist_ok=True)
+
+        has_valid_segments = False
 
         for video_file in videos:
             video_path = os.path.join(video_dir, video_file)
@@ -215,12 +216,37 @@ def cut_video_segments(
                 segments, video_start_time, video_duration, video_file, grouped_videos, video_dir
             )
 
-            video_segments = [seg for seg in video_segments if seg['segment_end_time'] - seg['segment_start_time'] >= MIN_DURATION]
+            for seg in video_segments:
+                seg['adjusted_start_time'] = seg['segment_start_time'] + PADDING_SECONDS
+                seg['adjusted_end_time'] = seg['segment_end_time'] - PADDING_SECONDS
+
+                seg['adjusted_start_time'] = max(seg['adjusted_start_time'], seg['segment_start_time'])
+                seg['adjusted_end_time'] = min(seg['adjusted_end_time'], seg['segment_end_time'])
+
+                seg['adjusted_duration'] = seg['adjusted_end_time'] - seg['adjusted_start_time']
+
+            video_segments = [
+                seg for seg in video_segments
+                if seg['adjusted_duration'] >= MIN_DURATION
+            ]
+
+            if not video_segments:
+                continue
+
+            if not has_valid_segments:
+                os.makedirs(output_dir, exist_ok=True)
+                has_valid_segments = True
 
             for j, segment_info in enumerate(video_segments):
                 try:
-                    los_issue_start_time = segment_info.get('los_issue_start_time', segment_info['segment_start_time'] + PADDING_SECONDS)
-                    los_issue_end_time = segment_info.get('los_issue_end_time', segment_info['segment_end_time'] - PADDING_SECONDS)
+                    los_issue_start_time = segment_info.get(
+                        'los_issue_start_time',
+                        segment_info['segment_start_time'] + PADDING_SECONDS
+                    )
+                    los_issue_end_time = segment_info.get(
+                        'los_issue_end_time',
+                        segment_info['segment_end_time'] - PADDING_SECONDS
+                    )
 
                     actual_padding_start = los_issue_start_time - segment_info['segment_start_time']
                     actual_padding_end = segment_info['segment_end_time'] - los_issue_end_time
@@ -231,7 +257,7 @@ def cut_video_segments(
 
                     inputs = []
                     streams = []
-                    for idx, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
+                    for _, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
                         vid_path = os.path.join(video_dir, vid_file)
                         ss = max(segment_info['segment_start_time'] - vid_start, 0)
                         duration = min(segment_info['segment_end_time'], vid_end) - max(segment_info['segment_start_time'], vid_start)
@@ -317,6 +343,7 @@ def cut_video_segments(
                             borderw=2,
                             bordercolor='yellow'
                         )
+
                     formatted_duration = f"{los_issue_duration:.2f}"
                     video_stream = video_stream.filter(
                         'drawtext',
