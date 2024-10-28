@@ -46,9 +46,12 @@ for trial_data in DATA_PATHS:
         logging.warning(f"Video directory {VIDEO_DIR} does not exist for trial {trial_number}. Skipping trial.")
         continue
 
+    VIDEO_TYPES = ['Room', 'LapColor', 'AtlasAR']
+
     VIDEO_FILES = [
-        filename for filename in os.listdir(VIDEO_DIR)
-        if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and 'Room' in filename
+    filename for filename in os.listdir(VIDEO_DIR)
+    if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and
+       any(video_type in filename for video_type in VIDEO_TYPES)
     ]
 
     if not VIDEO_FILES:

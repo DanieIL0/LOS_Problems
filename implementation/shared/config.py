@@ -6,7 +6,6 @@ Defines various configuration settings for file paths and processing parameters.
 
 CURRENT_DIRECTORY = os.getcwd()
 RESULTS_DIR_VID = os.path.join(CURRENT_DIRECTORY, 'cut_videos')
-RESULTS_DIR_PLOT = os.path.join(CURRENT_DIRECTORY, 'plots')
 FONT_FILE = 'ARIAL.TTF'
 
 def parse_trial_dir_name(trial_dir):
@@ -46,7 +45,7 @@ TRIAL_DIRS = [
     '211215_animal_trial_18',
 ]
 
-PRETRIAL_DIRS = [
+PRETRIAL_DIRS = [ # check which ones have a compressed video and which ones dont
     '210324_cadaver_00',
     '210427_cadaver_01',
     '210511_cadaver_02',
@@ -494,9 +493,3 @@ TIMEFRAMES = { #CET
         #":: - ::", ":: - ::", ":: - ::", ":: - ::", ":: - ::"
     ]
 }
-
-# Plotting-related configurations
-#PLOT_FLAG = True  # Set to True if you want to plot during processing
-#VARIANCE_THRESHOLD = 1e-2
-#NOISE_THRESHOLD = 0.05
-#SUBSAMPLING_FACTOR = 50
