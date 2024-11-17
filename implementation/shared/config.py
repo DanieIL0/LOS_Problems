@@ -87,7 +87,7 @@ for trial_dir in TRIAL_DIRS:
     trial_date, trial_type, trial_number = parse_trial_dir_name(trial_dir)
     data_path = {
         'ROSBAG_DATA_PATH': os.path.join(
-            CURRENT_DIRECTORY, '..', 'dataset', '03_animal_trials', trial_dir, 'atlas', 'RoSbag'
+            CURRENT_DIRECTORY, '..', 'dataset', '03_animal_trials', trial_dir, 'atlas', 'ROSbag'
         ),
         'VIDEO_DIR': os.path.join(
             CURRENT_DIRECTORY, '..', 'dataset', '03_animal_trials', trial_dir, 'atlas', 'VideosCompressed'
