@@ -2,9 +2,10 @@ import os
 import sys
 from datetime import datetime
 import logging
-from implementation.shared.config import DATA_PATHS, RESULTS_DIR_VID
+from implementation.shared.config import DATA_PATHS, RESULTS_DIR_VID, TIMEFRAMES
 from implementation.cut.rosbag_processing import process_telescope_transforms, process_phantom_transforms
 from implementation.cut.video_processing import cut_video_segments
+from implementation.shared.utils import process_timeframes
 
 LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
@@ -30,7 +31,7 @@ logging.info("Starting the script")
 
 os.makedirs(RESULTS_DIR_VID, exist_ok=True)
 
-trial_number = 1
+processed_timeframes = process_timeframes(TIMEFRAMES)
 
 for trial_data in DATA_PATHS:
     ROSBAG_DATA_PATH = trial_data['ROSBAG_DATA_PATH']
@@ -49,9 +50,9 @@ for trial_data in DATA_PATHS:
     VIDEO_TYPES = ['Room', 'LapColor', 'AtlasAR']
 
     VIDEO_FILES = [
-    filename for filename in os.listdir(VIDEO_DIR)
-    if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and
-       any(video_type in filename for video_type in VIDEO_TYPES)
+        filename for filename in os.listdir(VIDEO_DIR)
+        if os.path.isfile(os.path.join(VIDEO_DIR, filename)) and
+           any(video_type in filename for video_type in VIDEO_TYPES)
     ]
 
     if not VIDEO_FILES:
@@ -90,7 +91,8 @@ for trial_data in DATA_PATHS:
             LOG_FILE_CONTENT,
             VIDEO_FILES,
             pretrial,
-            trial_type
+            trial_type,
+            processed_timeframes
         )
     else:
         logging.info(f"No segments found for trial {trial_number}")

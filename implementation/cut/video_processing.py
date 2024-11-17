@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from dateutil.parser import parse
 from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
-from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
+from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file, get_video_metadata
 from ..cut.generate_table import generate_excel_table, collect_segment_info
 
 def get_video_metadata(video_path):
@@ -44,7 +44,7 @@ def group_videos_by_start_time_and_type(video_files, video_dir):
     for video_file in video_files:
         video_path = os.path.join(video_dir, video_file)
         try:
-            video_duration, video_start_time = get_video_metadata(video_path)
+            _, video_start_time = get_video_metadata(video_path)
         except ValueError as e:
             logging.error(e)
             continue
@@ -207,7 +207,8 @@ def cut_video_segments(
     LOG_FILE,
     VIDEO_FILES,
     pretrial,
-    trial_type
+    trial_type,
+    timeframes
 ):
     """
     Cuts video segments from given videos and adds overlays.
@@ -222,6 +223,7 @@ def cut_video_segments(
         VIDEO_FILES (list): List of video files for the current trial.
         pretrial (bool): Indicates if it's a pretrial.
         trial_type (str): The trial type extracted from the directory name.
+        timeframes (dict): Dictionary mapping dates to list of (start_timestamp, end_timestamp) tuples.
     """
     if LOG_FILE and not pretrial:
         log_steps = parse_log_file(LOG_FILE)
@@ -294,6 +296,9 @@ def cut_video_segments(
                         inputs = []
                         streams = []
                         for _, (vid_file, vid_start, vid_end) in enumerate(segment_info['video_inputs']):
+                            if not isinstance(vid_file, str):
+                                logging.error(f"Invalid 'vid_file' type: expected str, got {type(vid_file)}. Skipping this entry.")
+                                continue
                             vid_path = os.path.join(video_dir, vid_file)
                             ss = max(segment_info['segment_start_time'] - vid_start, 0)
                             duration = min(segment_info['segment_end_time'], vid_end) - max(segment_info['segment_start_time'], vid_start)
@@ -425,7 +430,8 @@ def cut_video_segments(
                             for vid_file, vid_start, vid_end in segment_info['video_inputs']
                         ]
 
-                        collect_segment_info(
+                        try:
+                            collect_segment_info(
                             segment_info_list,
                             segment_info,
                             los_issue_duration,
@@ -435,13 +441,19 @@ def cut_video_segments(
                             los_issue_start_time,
                             trial_number,
                             pretrial,
-                            trial_type
-                        )
+                            trial_type,
+                            timeframes
+                            )
+                        except Exception as e:
+                            logging.error(f"Error collecting segment info for {output_filename}: {str(e)}")
+                            continue
 
                     except ffmpeg.Error as e:
                         logging.error(f"FFmpeg Error for {output_filename}: {e.stderr.decode()}")
+                        continue
                     except Exception as e:
-                        logging.error(f"Unexpected error creating video segment {output_filename}: {e}")
+                        logging.error(f"Unexpected error creating video segment {output_filename}: {str(e)}")
+                        continue
 
     if segment_info_list:
         excel_output_path = os.path.join(results_dir, 'segment_info.xlsx')

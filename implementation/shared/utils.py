@@ -195,3 +195,24 @@ def find_log_step(timestamp_seconds_since_midnight, log_steps):
         if start_time <= timestamp_seconds_since_midnight < end_time:
             return step['description']
     return None
+
+def compute_overlapping_duration(start_time, end_time, timeframes):
+    """
+    Computes the total overlapping duration between a time interval and a list of timeframes.
+
+    Parameters:
+        start_time (float): Start time of the interval (UNIX timestamp).
+        end_time (float): End time of the interval (UNIX timestamp).
+        timeframes (list): List of (start_time, end_time) tuples (UNIX timestamps).
+
+    Returns:
+        float: Total overlapping duration in seconds.
+    """
+    total_overlap = 0.0
+    for tf_start, tf_end in timeframes:
+        latest_start = max(start_time, tf_start)
+        earliest_end = min(end_time, tf_end)
+        overlap = earliest_end - latest_start
+        if overlap > 0:
+            total_overlap += overlap
+    return total_overlap

@@ -1,4 +1,5 @@
 from openpyxl import load_workbook
+from ..shared.utils import compute_overlapping_duration
 from datetime import datetime
 import pandas as pd
 import os
@@ -13,7 +14,8 @@ def collect_segment_info(
     los_issue_start_time,
     trial_number,
     pretrial,
-    trial_type
+    trial_type,
+    timeframes
 ):
     """
     Collects information about a video segment and appends it to the segment_info_list.
@@ -29,6 +31,7 @@ def collect_segment_info(
         trial_number (str): The trial number extracted from the directory name.
         pretrial (bool): Indicates if it's a pretrial.
         trial_type (str): The trial type extracted from the directory name.
+        timeframes (dict): Dictionary mapping dates to list of (start_timestamp, end_timestamp) tuples.
     """
     origin_videos_info = []
     for vid_file, vid_start, vid_end in segment_info['video_inputs']:
@@ -51,21 +54,37 @@ def collect_segment_info(
     if pretrial or log_steps is None or log_step_description is None:
         performed_step = ''
         step_length_mmss = ''
+        cleaned_step_length_mmss = ''
     else:
         performed_step = log_step_description if log_step_description else 'NaN'
 
         if log_steps and log_step_description:
             for step in log_steps:
                 if step['description'] == log_step_description:
-                    step_length_secs = step['end_time'] - step['start_time']
-                    minutes = int(step_length_secs // 60)
-                    seconds = int(step_length_secs % 60)
-                    step_length_mmss = f"{minutes}:{seconds:02d}"
+                    if 'end_timestamp' in step:
+                        step_length_secs = step['end_timestamp'] - step['start_timestamp']
+                        minutes = int(step_length_secs // 60)
+                        seconds = int(step_length_secs % 60)
+                        step_length_mmss = f"{minutes}:{seconds:02d}"
+
+                        timeframes_for_day = timeframes.get(day, [])
+                        cleaned_length_secs = compute_overlapping_duration(
+                            step['start_timestamp'], step['end_timestamp'], timeframes_for_day
+                        )
+                        minutes_cleaned = int(cleaned_length_secs // 60)
+                        seconds_cleaned = int(cleaned_length_secs % 60)
+                        cleaned_step_length_mmss = f"{minutes_cleaned}:{seconds_cleaned:02d}"
+                    else:
+                        print(f"Step '{step['description']}' is missing 'end_timestamp'")
+                        step_length_mmss = 'NaN'
+                        cleaned_step_length_mmss = 'NaN'
                     break
             else:
                 step_length_mmss = 'NaN'
+                cleaned_step_length_mmss = 'NaN'
         else:
             step_length_mmss = 'NaN'
+            cleaned_step_length_mmss = 'NaN'
 
     los_issue_start_time_str = datetime.fromtimestamp(los_issue_start_time).strftime('%H:%M:%S')
 
@@ -80,6 +99,7 @@ def collect_segment_info(
         'Length (secs)': f"{length_secs:.2f}",
         'Performed Step': performed_step,
         'Length of step (mm:ss)': step_length_mmss,
+        'Cleaned Length of step (mm:ss)': cleaned_step_length_mmss,
         'Reason': ''
     }
 
