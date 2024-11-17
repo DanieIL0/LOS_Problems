@@ -137,9 +137,9 @@ def parse_log_file(log_content):
     for line in log_lines:
         match = re.match(r'\[(\d+)\]\[(\d{2}:\d{2}:\d{2}\.\d{3})\]\s*(.+)', line)
         if match:
-            timestamp_ms_str, time_str, description = match.groups()
+            timestamp_ms_str, _, description = match.groups()
             timestamp_ms = int(timestamp_ms_str)
-            timestamp = timestamp_ms / 1000.0  # Convert milliseconds to seconds
+            timestamp = timestamp_ms / 1000.0 
 
             dt = datetime.fromtimestamp(timestamp)
             seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6
@@ -155,8 +155,7 @@ def parse_log_file(log_content):
             }
 
     if current_step:
-        # Assume the last step ends at the end of the day (adjust as needed)
-        current_step['end_time'] = current_step['start_time'] + 3600  # Or some large value
+        current_step['end_time'] = current_step['start_time'] + 3600
         steps.append(current_step)
 
     return steps
@@ -195,24 +194,3 @@ def find_log_step(timestamp_seconds_since_midnight, log_steps):
         if start_time <= timestamp_seconds_since_midnight < end_time:
             return step['description']
     return None
-
-def compute_overlapping_duration(start_time, end_time, timeframes):
-    """
-    Computes the total overlapping duration between a time interval and a list of timeframes.
-
-    Parameters:
-        start_time (float): Start time of the interval (UNIX timestamp).
-        end_time (float): End time of the interval (UNIX timestamp).
-        timeframes (list): List of (start_time, end_time) tuples (UNIX timestamps).
-
-    Returns:
-        float: Total overlapping duration in seconds.
-    """
-    total_overlap = 0.0
-    for tf_start, tf_end in timeframes:
-        latest_start = max(start_time, tf_start)
-        earliest_end = min(end_time, tf_end)
-        overlap = earliest_end - latest_start
-        if overlap > 0:
-            total_overlap += overlap
-    return total_overlap
