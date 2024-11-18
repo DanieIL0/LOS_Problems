@@ -28,20 +28,41 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
     for rosbag_file in os.listdir(rosbag_folder):
         if rosbag_file.endswith(".bag"):
             rosbag_path = os.path.join(rosbag_folder, rosbag_file)
-            b = bagreader(rosbag_path)
+            logging.info(f"Processing rosbag file: {rosbag_path}")
+            try:
+                b = bagreader(rosbag_path)
 
-            ar_tracking_data = b.message_by_topic('/ARTracking')
-            if ar_tracking_data:
+                if '/ARTracking' not in b.topics:
+                    logging.warning(f"/ARTracking topic not found in {rosbag_file}. Skipping this rosbag.")
+                    continue
+
+                ar_tracking_data = b.message_by_topic('/ARTracking')
+                if not ar_tracking_data or not os.path.exists(ar_tracking_data):
+                    logging.warning(f"No data found for /ARTracking in {rosbag_file}. Skipping this rosbag.")
+                    continue
 
                 ar_tracking_df = pd.read_csv(ar_tracking_data, index_col=False)
 
+                if ar_tracking_df.empty:
+                    logging.warning(f"Empty dataframe for /ARTracking in {rosbag_file}. Skipping this rosbag.")
+                    continue
+
                 if 'header.frame_id' not in ar_tracking_df.columns:
-                    logging.info(f"'header.frame_id' not found in {ar_tracking_data}")
+                    logging.warning(f"'header.frame_id' column not found in {ar_tracking_data}. Skipping this rosbag.")
                     continue
 
                 marker_df = ar_tracking_df[ar_tracking_df['header.frame_id'] == marker_frame_id]
+
+                if marker_df.empty:
+                    logging.warning(f"No data found for marker '{marker_frame_id}' in {rosbag_file}. Skipping this rosbag.")
+                    continue
+
                 marker_df = marker_df[pd.to_numeric(marker_df['Time'], errors='coerce').notnull()]
                 marker_df['Time'] = marker_df['Time'].astype(float)
+
+                if 'pose.position.x' not in marker_df.columns:
+                    logging.warning(f"'pose.position.x' column not found in marker data from {rosbag_file}. Skipping this rosbag.")
+                    continue
 
                 marker_df = marker_df[pd.to_numeric(marker_df['pose.position.x'], errors='coerce').notnull()]
                 marker_df['pose.position.x'] = marker_df['pose.position.x'].astype(float)
@@ -51,6 +72,9 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
 
                 all_timestamps.extend(timestamps)
                 all_transforms.extend(transforms)
+            except Exception as e:
+                logging.error(f"Error processing {rosbag_file}: {str(e)}. Skipping this rosbag.")
+                continue
     return all_timestamps, all_transforms
 
 def identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes):

@@ -25,9 +25,9 @@ def parse_trial_dir_name(trial_dir):
 pretrial = False
 
 TRIAL_DIRS = [
-    #'210810_animal_trial_01', No /ARTracking topic in Rosbag files 
-    #'210824_animal_trial_02',
-    #'210914_animal_trial_03',
+    '210810_animal_trial_01',
+    '210824_animal_trial_02',
+    '210914_animal_trial_03',
     '210928_animal_trial_04',
     '211012_animal_trial_05',
     '211019_animal_trial_06',
