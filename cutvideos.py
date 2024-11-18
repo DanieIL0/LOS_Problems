@@ -5,6 +5,7 @@ import logging
 from implementation.shared.config import DATA_PATHS, RESULTS_DIR_VID
 from implementation.cut.rosbag_processing import process_telescope_transforms, process_phantom_transforms
 from implementation.cut.video_processing import cut_video_segments
+import shutil
 
 LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
@@ -93,6 +94,14 @@ for trial_data in DATA_PATHS:
         )
     else:
         logging.info(f"No segments found for trial {trial_number}")
+
+    rosbag_folder = os.path.join(os.getcwd(), 'rosbag')
+    if os.path.exists(rosbag_folder):
+        try:
+            shutil.rmtree(rosbag_folder)
+            logging.info(f"Deleted rosbag folder after trial {trial_number}: {rosbag_folder}")
+        except Exception as e:
+            logging.error(f"Failed to delete rosbag folder {rosbag_folder}: {str(e)}")
 
 
 logging.info("Script ended")

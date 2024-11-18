@@ -25,12 +25,21 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
     """
     all_timestamps = []
     all_transforms = []
+
+    base_rosbag_output_dir = os.path.join(os.getcwd(), 'rosbag')
+    os.makedirs(base_rosbag_output_dir, exist_ok=True)
+    logging.info(f"Base directory for CSV files: {base_rosbag_output_dir}")
+
     for rosbag_file in os.listdir(rosbag_folder):
         if rosbag_file.endswith(".bag"):
             rosbag_path = os.path.join(rosbag_folder, rosbag_file)
             logging.info(f"Processing rosbag file: {rosbag_path}")
             try:
                 b = bagreader(rosbag_path)
+                rosbag_name = os.path.splitext(rosbag_file)[0]
+                desired_output_dir = os.path.join(base_rosbag_output_dir, rosbag_name)
+                os.makedirs(desired_output_dir, exist_ok=True)
+                b.datafolder = desired_output_dir
 
                 if '/ARTracking' not in b.topics:
                     logging.warning(f"/ARTracking topic not found in {rosbag_file}. Skipping this rosbag.")
