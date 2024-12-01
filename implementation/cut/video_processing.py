@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from dateutil.parser import parse
 from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
-from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file, get_video_metadata
+from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 from ..cut.generate_table import generate_excel_table, collect_segment_info
 
 def get_video_metadata(video_path):

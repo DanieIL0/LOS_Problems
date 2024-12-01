@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import logging
+import pytz
+from datetime import datetime
 from bagpy import bagreader
 from ..shared.config import (
     TIMEFRAMES,
@@ -29,13 +31,31 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
     base_rosbag_output_dir = os.path.join(os.getcwd(), 'rosbag')
     os.makedirs(base_rosbag_output_dir, exist_ok=True)
     logging.info(f"Base directory for CSV files: {base_rosbag_output_dir}")
-
     for rosbag_file in os.listdir(rosbag_folder):
         if rosbag_file.endswith(".bag"):
             rosbag_path = os.path.join(rosbag_folder, rosbag_file)
             logging.info(f"Processing rosbag file: {rosbag_path}")
             try:
                 b = bagreader(rosbag_path)
+                bag_start_time = b.reader.get_start_time()
+                bag_end_time = b.reader.get_end_time()
+                local_tz = pytz.timezone('Europe/Berlin')
+                bag_start_datetime = datetime.fromtimestamp(bag_start_time, tz=local_tz)
+                bag_date_str = bag_start_datetime.strftime('%Y-%m-%d')
+
+                if bag_date_str not in TIMEFRAMES or not TIMEFRAMES[bag_date_str]:
+                    logging.info(f"No timeframes for date {bag_date_str}. Skipping this rosbag.")
+                    continue
+                date_timeframes = {bag_date_str: TIMEFRAMES[bag_date_str]}
+                date_timeframes_processed = process_timeframes(date_timeframes)
+
+                earliest_start_time = min(start_time for start_time, _ in date_timeframes_processed)
+                latest_end_time = max(end_time for _, end_time in date_timeframes_processed)
+
+                if bag_end_time < earliest_start_time or bag_start_time > latest_end_time:
+                    logging.info(f"Rosbag file {rosbag_file} does not overlap with the overall timeframe on {bag_date_str}. Skipping.")
+                    continue
+
                 rosbag_name = os.path.splitext(rosbag_file)[0]
                 desired_output_dir = os.path.join(base_rosbag_output_dir, rosbag_name)
                 os.makedirs(desired_output_dir, exist_ok=True)
@@ -136,15 +156,20 @@ def merge_segments(segments):
     Returns:
         list: A list of merged segments.
     """
-    merged_segments = []
-    previous_segment = None
+    if not segments:
+        return []
 
-    for segment in segments:
-        if previous_segment and segment[0] <= previous_segment[1] + 1:
-            merged_segments[-1] = (previous_segment[0], segment[1], "merged")
+    # Sort segments by start time
+    segments.sort(key=lambda x: x[0])
+    merged_segments = [segments[0]]
+
+    for current in segments[1:]:
+        previous = merged_segments[-1]
+        # If the current segment overlaps or is close to the previous, merge them
+        if current[0] <= previous[1] + 0.5:
+            merged_segments[-1] = (previous[0], max(previous[1], current[1]), "merged")
         else:
-            merged_segments.append(segment)
-        previous_segment = segment
+            merged_segments.append(current)
 
     return merged_segments
 

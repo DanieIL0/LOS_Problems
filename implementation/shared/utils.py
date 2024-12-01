@@ -2,32 +2,35 @@ import numpy as np
 from datetime import datetime
 import re
 import subprocess
+import pytz
 
 def convert_to_timestamp(time_str, reference_date):
     """
-    Converts a time string to a timestamp.
+    Converts a time string to a timestamp in UTC.
 
     Parameters:
         time_str (str): The time string to convert.
         reference_date (str): The reference date for the conversion.
 
     Returns:
-        int: The corresponding timestamp.
+        int: The corresponding UTC timestamp.
     """
     datetime_str = f"{reference_date} {time_str}"
-    datetime_obj = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
-    timestamp = int(datetime_obj.timestamp())
+    local_tz = pytz.timezone('Europe/Berlin')
+    naive_datetime_obj = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
+    aware_datetime_obj = local_tz.localize(naive_datetime_obj)
+    timestamp = int(aware_datetime_obj.timestamp())
     return timestamp    
 
 def process_timeframes(timeframes):
     """
-    Processes timeframes into a list of start and end timestamps.
+    Processes timeframes into a list of start and end UTC timestamps.
 
     Parameters:
         timeframes (dict): Dictionary where keys are dates (YYYY-MM-DD), and values are lists of timeframes as strings in the format "start_time - end_time".
 
     Returns:
-        list: List of tuples with start and end timestamps.
+        list: List of tuples with start and end UTC timestamps.
     """
     timestamps = []
     for date_str, time_ranges in timeframes.items():
@@ -131,6 +134,7 @@ def parse_log_file(log_content):
     """
     steps = []
     current_step = None
+    local_tz = pytz.timezone('Europe/Berlin')
 
     log_lines = log_content.strip().splitlines()
 
@@ -141,7 +145,7 @@ def parse_log_file(log_content):
             timestamp_ms = int(timestamp_ms_str)
             timestamp = timestamp_ms / 1000.0 
 
-            dt = datetime.fromtimestamp(timestamp)
+            dt = datetime.fromtimestamp(timestamp, tz=local_tz)
             seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6
 
             if current_step:
@@ -160,10 +164,9 @@ def parse_log_file(log_content):
 
     return steps
 
-
 def unix_timestamp_to_seconds_since_midnight(timestamp):
     """
-    Converts a UNIX timestamp to seconds since midnight.
+    Converts a UNIX timestamp to seconds since midnight in Europe/Berlin timezone.
 
     Parameters:
         timestamp (float): UNIX timestamp.
@@ -171,7 +174,8 @@ def unix_timestamp_to_seconds_since_midnight(timestamp):
     Returns:
         float: Seconds since midnight.
     """
-    dt = datetime.fromtimestamp(timestamp)
+    local_tz = pytz.timezone('Europe/Berlin')
+    dt = datetime.fromtimestamp(timestamp, tz=local_tz)
     seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second + dt.microsecond / 1e6
     return seconds_since_midnight
 
