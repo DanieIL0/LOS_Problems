@@ -2,6 +2,7 @@ from openpyxl import load_workbook
 from datetime import datetime
 import pandas as pd
 import os
+import pytz
 
 def collect_segment_info(
     segment_info_list,
@@ -42,8 +43,9 @@ def collect_segment_info(
     origin_videos_str = '+'.join(origin_videos)
 
     segment_number = segment_index + 1
-
-    segment_start_datetime = datetime.fromtimestamp(segment_info['segment_start_time'])
+    local_tz = pytz.timezone('Europe/Berlin')
+    segment_start_datetime = datetime.fromtimestamp(segment_info['segment_start_time'], tz=pytz.utc)
+    segment_start_datetime = segment_start_datetime.astimezone(local_tz)
     day = segment_start_datetime.strftime('%d/%m/%Y')
 
     length_secs = los_issue_duration
@@ -67,7 +69,9 @@ def collect_segment_info(
         else:
             step_length_mmss = 'NaN'
 
-    los_issue_start_time_str = datetime.fromtimestamp(los_issue_start_time).strftime('%H:%M:%S')
+    los_issue_start_datetime = datetime.fromtimestamp(los_issue_start_time, tz=pytz.utc)
+    los_issue_start_datetime = los_issue_start_datetime.astimezone(local_tz)
+    los_issue_start_time_str = los_issue_start_datetime.strftime('%H:%M:%S')
 
     segment_data = {
         'Pretrial': pretrial,
@@ -108,8 +112,8 @@ def generate_excel_table(segment_info_list, excel_output_path):
 
     column_letters = {cell.value: cell.column_letter for cell in ws[1]}
 
-    if 'Origin Videos' in column_letters:
-        origin_video_column = column_letters['Origin Videos']
+    if 'Original Videos' in column_letters:
+        origin_video_column = column_letters['Original Videos']
         ws.column_dimensions[origin_video_column].width = 45
 
     if 'Reason' in column_letters:

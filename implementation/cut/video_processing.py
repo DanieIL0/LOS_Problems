@@ -2,7 +2,8 @@ import os
 import ffmpeg
 import logging
 from datetime import datetime
-from dateutil.parser import parse
+from dateutil import parser, tz
+import pytz
 from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
 from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 from ..cut.generate_table import generate_excel_table, collect_segment_info
@@ -23,7 +24,9 @@ def get_video_metadata(video_path):
     creation_time_str = tags.get('creation_time')
     if not creation_time_str:
         raise ValueError(f"The 'creation_time' tag is missing in {video_path}")
-    creation_time = parse(creation_time_str)
+    creation_time = parser.parse(creation_time_str)
+    if creation_time.tzinfo is None:
+        creation_time = creation_time.replace(tzinfo=tz.tzutc())
     start_timestamp = creation_time.timestamp()
     duration = float(format_info['duration'])
     return duration, start_timestamp
@@ -44,7 +47,7 @@ def group_videos_by_start_time_and_type(video_files, video_dir):
     for video_file in video_files:
         video_path = os.path.join(video_dir, video_file)
         try:
-            video_duration, video_start_time = get_video_metadata(video_path)
+            _, video_start_time = get_video_metadata(video_path)
         except ValueError as e:
             logging.error(e)
             continue
@@ -232,8 +235,10 @@ def cut_video_segments(
     grouped_videos = group_videos_by_start_time_and_type(VIDEO_FILES, video_dir)
     segment_info_list = []
 
+    local_tz = pytz.timezone('Europe/Berlin')
+
     for start_time, videos_by_type in grouped_videos.items():
-        folder_name = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d_%H-%M-%S')
+        folder_name = datetime.fromtimestamp(start_time, tz=local_tz).strftime('%Y-%m-%d_%H-%M-%S')
         base_output_dir = os.path.join(results_dir, f"Trial_{trial_number}", folder_name)
 
         for video_type, videos in videos_by_type.items():
@@ -394,7 +399,7 @@ def cut_video_segments(
                             borderw=2,
                             bordercolor='white'
                         )
-                        start_time_str = datetime.fromtimestamp(segment_info['segment_start_time']).strftime('%H-%M-%S')
+                        start_time_str = datetime.fromtimestamp(segment_info['segment_start_time'], tz=local_tz).strftime('%H-%M-%S')
 
                         if log_steps and not pretrial:
                             los_issue_start_time_seconds = unix_timestamp_to_seconds_since_midnight(los_issue_start_time)
