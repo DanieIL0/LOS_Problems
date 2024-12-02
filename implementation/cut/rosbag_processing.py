@@ -166,7 +166,7 @@ def merge_segments(segments):
     for current in segments[1:]:
         previous = merged_segments[-1]
         # If the current segment overlaps or is close to the previous, merge them
-        if current[0] <= previous[1] + 0.5:
+        if current[0] <= previous[1]:
             merged_segments[-1] = (previous[0], max(previous[1], current[1]), "merged")
         else:
             merged_segments.append(current)
@@ -174,7 +174,7 @@ def merge_segments(segments):
     return merged_segments
 
 def process_telescope_transforms(rosbag_folder):
-    """
+    """`
     Processes telescope marker transforms to identify segments with missing data.
 
     Parameters:
