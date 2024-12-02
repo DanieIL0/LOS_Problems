@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from dateutil import parser, tz
 import pytz
-from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, MAX_DURATION
+from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
 from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 from ..cut.generate_table import generate_excel_table, collect_segment_info
 
@@ -269,7 +269,7 @@ def cut_video_segments(
 
                 video_segments = [
                     seg for seg in video_segments
-                    if MAX_DURATION >= seg['adjusted_duration'] >= MIN_DURATION
+                    if seg['adjusted_duration'] >= MIN_DURATION
                 ]
 
                 if not video_segments:
