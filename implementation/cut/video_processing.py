@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from dateutil import parser, tz
 import pytz
-from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE
+from ..shared.config import MIN_DURATION, PADDING_SECONDS, OVERLAY_DURATION, FONT_FILE, MAX_DURATION
 from ..shared.utils import find_log_step, unix_timestamp_to_seconds_since_midnight, parse_log_file
 from ..cut.generate_table import generate_excel_table, collect_segment_info
 
@@ -200,7 +200,6 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
         correlated_times.append(segment_info)
 
     return correlated_times
-
 def cut_video_segments(
     segments,
     phantom_missing,
@@ -237,13 +236,15 @@ def cut_video_segments(
 
     local_tz = pytz.timezone('Europe/Berlin')
 
+    created_directories = {}
+
     for start_time, videos_by_type in grouped_videos.items():
         folder_name = datetime.fromtimestamp(start_time, tz=local_tz).strftime('%Y-%m-%d_%H-%M-%S')
         base_output_dir = os.path.join(results_dir, f"Trial_{trial_number}", folder_name)
 
         for video_type, videos in videos_by_type.items():
             output_dir = os.path.join(base_output_dir, video_type)
-            has_valid_segments = False
+            created_directories[output_dir] = False  # Initially, the directory is empty
 
             for video_file in videos:
                 video_path = os.path.join(video_dir, video_file)
@@ -268,15 +269,11 @@ def cut_video_segments(
 
                 video_segments = [
                     seg for seg in video_segments
-                    if seg['adjusted_duration'] >= MIN_DURATION
+                    if MAX_DURATION >= seg['adjusted_duration'] >= MIN_DURATION
                 ]
 
                 if not video_segments:
                     continue
-
-                if not has_valid_segments:
-                    os.makedirs(output_dir, exist_ok=True)
-                    has_valid_segments = True
 
                 for j, segment_info in enumerate(video_segments):
                     try:
@@ -417,6 +414,9 @@ def cut_video_segments(
                             f'segment_{j+1}_{start_time_str}_{log_step_label}_{video_type}.mp4'
                         )
 
+                        # Ensure the directory exists before writing the output file
+                        os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+
                         (
                             ffmpeg
                             .output(video_stream, audio_stream, output_filename, vcodec='libx264', acodec='aac', g=60)
@@ -424,6 +424,8 @@ def cut_video_segments(
                         )
 
                         logging.info(f"Created video segment: {output_filename}")
+                        # Mark the directory as having content
+                        created_directories[output_dir] = True
 
                         segment_info['video_inputs'] = [
                             (vid_file.replace(video_type, '*'), vid_start, vid_end)
@@ -447,6 +449,15 @@ def cut_video_segments(
                         logging.error(f"FFmpeg Error for {output_filename}: {e.stderr.decode()}")
                     except Exception as e:
                         logging.error(f"Unexpected error creating video segment {output_filename}: {e}")
+
+    # Delete empty directories
+    for dir_path, has_content in created_directories.items():
+        if not has_content:
+            try:
+                os.rmdir(dir_path)
+                logging.info(f"Deleted empty directory: {dir_path}")
+            except OSError as e:
+                logging.error(f"Error deleting directory {dir_path}: {e}")
 
     if segment_info_list:
         excel_output_path = os.path.join(results_dir, 'segment_info.xlsx')

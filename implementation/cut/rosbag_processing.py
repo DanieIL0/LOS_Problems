@@ -11,19 +11,25 @@ from ..shared.config import (
     THRESHOLD_PERCENTAGE,
     PHANTOM_WINDOW_SIZE,
     PHANTOM_THRESHOLD_PERCENTAGE,
+    MIN_DURATION
 )
 from ..shared.utils import process_timeframes, is_within_timeframes
+
+def get_overlapping_timeframes(segment_start, segment_end, timeframes):
+    """
+    Returns the overlapping portions of a segment with the timeframes.
+    """
+    overlaps = []
+    for start, end in timeframes:
+        overlap_start = max(segment_start, start)
+        overlap_end = min(segment_end, end)
+        if overlap_start < overlap_end:
+            overlaps.append((overlap_start, overlap_end))
+    return overlaps
 
 def extract_marker_transforms(rosbag_folder, marker_frame_id):
     """
     Extracts the transforms for a specified marker from ROS bag files.
-
-    Parameters:
-        rosbag_folder (str): Directory containing the ROS bag files.
-        marker_frame_id (str): The frame ID of the marker to extract transforms for.
-
-    Returns:
-        tuple: Two lists containing timestamps and transforms.
     """
     all_timestamps = []
     all_transforms = []
@@ -89,6 +95,12 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
                 marker_df = marker_df[pd.to_numeric(marker_df['Time'], errors='coerce').notnull()]
                 marker_df['Time'] = marker_df['Time'].astype(float)
 
+                marker_df = marker_df[marker_df['Time'].apply(lambda t: is_within_timeframes(t, date_timeframes_processed))]
+
+                if marker_df.empty:
+                    logging.warning(f"No data within timeframes for marker '{marker_frame_id}' in {rosbag_file}. Skipping this rosbag.")
+                    continue
+
                 if 'pose.position.x' not in marker_df.columns:
                     logging.warning(f"'pose.position.x' column not found in marker data from {rosbag_file}. Skipping this rosbag.")
                     continue
@@ -101,6 +113,9 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
 
                 all_timestamps.extend(timestamps)
                 all_transforms.extend(transforms)
+
+                logging.info(f"Number of data points for marker '{marker_frame_id}' within timeframes: {len(marker_df)}")
+
             except Exception as e:
                 logging.error(f"Error processing {rosbag_file}: {str(e)}. Skipping this rosbag.")
                 continue
@@ -109,52 +124,47 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
 def identify_missing_segments(all_timestamps, all_transforms, window_size, threshold_percentage, timeframes):
     """
     Identifies segments where the percentage of missing transformations exceeds the threshold.
-
-    Parameters:
-        all_timestamps (list): List of timestamps.
-        all_transforms (list): List of transforms.
-        window_size (int): The size of the window to check for missing transforms.
-        threshold_percentage (float): The percentage threshold for missing transforms.
-        timeframes (list): List of timeframes to consider.
-
-    Returns:
-        list: A list of identified segments where the threshold of missing transformations is exceeded.
+    Clips segments to fit entirely within timeframes and discards segments shorter than MIN_DURATION.
     """
     threshold_missing = threshold_percentage / 100.0 * window_size
     segments = []
-    start_timestamp = None
-    for i in range(len(all_timestamps) - window_size + 1):
-        window_data = np.array(all_transforms[i:i + window_size])
-        missing_count = np.sum(window_data == 0)
+    i = 0
+    total_points = len(all_timestamps)
+    while i <= total_points - window_size:
+        window_timestamps = all_timestamps[i:i + window_size]
+        window_transforms = all_transforms[i:i + window_size]
+        missing_count = np.sum(np.array(window_transforms) == 0)
 
         if missing_count >= threshold_missing:
-            if start_timestamp is None:
-                start_timestamp = all_timestamps[i]
+            segment_start = window_timestamps[0]
+            segment_end = window_timestamps[window_size - 1]
+            j = i + 1
+            while j <= total_points - window_size:
+                next_window_timestamps = all_timestamps[j:j + window_size]
+                next_window_transforms = all_transforms[j:j + window_size]
+                next_missing_count = np.sum(np.array(next_window_transforms) == 0)
+                if next_missing_count >= threshold_missing:
+                    segment_end = next_window_timestamps[window_size - 1]
+                    j += 1
+                else:
+                    break
+            i = j
+            overlapping_timeframes = get_overlapping_timeframes(segment_start, segment_end, timeframes)
+            for overlap_start, overlap_end in overlapping_timeframes:
+                segment_duration = overlap_end - overlap_start
+                if segment_duration >= MIN_DURATION:
+                    segments.append((overlap_start, overlap_end, "merged"))
+                    logging.debug(f"Segment added: {overlap_start} to {overlap_end}")
+                else:
+                    logging.debug(f"Segment discarded (too short): {overlap_start} to {overlap_end}")
         else:
-            if start_timestamp is not None:
-                end_timestamp = all_timestamps[i + window_size - 1]
-                if (is_within_timeframes(start_timestamp, timeframes) and
-                        is_within_timeframes(end_timestamp, timeframes)):
-                    segments.append((start_timestamp, end_timestamp, "merged"))
-                start_timestamp = None
-
-    # Handle the case where the last segment extends to the end
-    if start_timestamp is not None:
-        end_timestamp = all_timestamps[-1]
-        if is_within_timeframes(start_timestamp, timeframes):
-            segments.append((start_timestamp, end_timestamp, "merged"))
+            i += 1
 
     return segments
 
 def merge_segments(segments):
     """
-    Merges overlapping or consecutive segments.
-
-    Parameters:
-        segments (list): List of segments to merge.
-
-    Returns:
-        list: A list of merged segments.
+    Merges overlapping or immediately consecutive segments (no gap allowed).
     """
     if not segments:
         return []
@@ -165,23 +175,18 @@ def merge_segments(segments):
 
     for current in segments[1:]:
         previous = merged_segments[-1]
-        # If the current segment overlaps or is close to the previous, merge them
         if current[0] <= previous[1]:
             merged_segments[-1] = (previous[0], max(previous[1], current[1]), "merged")
+        elif current[0] == previous[1]:
+            merged_segments[-1] = (previous[0], current[1], "merged")
         else:
             merged_segments.append(current)
 
     return merged_segments
 
 def process_telescope_transforms(rosbag_folder):
-    """`
+    """
     Processes telescope marker transforms to identify segments with missing data.
-
-    Parameters:
-        rosbag_folder (str): Directory containing the ROS bag files.
-
-    Returns:
-        list: A list of telescope segments where missing data exceeds the threshold.
     """
     timeframes = process_timeframes(TIMEFRAMES)
     window_size = WINDOW_SIZE
@@ -196,12 +201,6 @@ def process_telescope_transforms(rosbag_folder):
 def process_phantom_transforms(rosbag_folder):
     """
     Processes phantom marker transforms to identify segments with missing data.
-
-    Parameters:
-        rosbag_folder (str): Directory containing the ROS bag files.
-
-    Returns:
-        list: A list of phantom segments where missing data exceeds the threshold.
     """
     timeframes = process_timeframes(TIMEFRAMES)
     window_size = PHANTOM_WINDOW_SIZE
