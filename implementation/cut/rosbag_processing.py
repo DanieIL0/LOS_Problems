@@ -114,8 +114,6 @@ def extract_marker_transforms(rosbag_folder, marker_frame_id):
                 all_timestamps.extend(timestamps)
                 all_transforms.extend(transforms)
 
-                logging.info(f"Number of data points for marker '{marker_frame_id}' within timeframes: {len(marker_df)}")
-
             except Exception as e:
                 logging.error(f"Error processing {rosbag_file}: {str(e)}. Skipping this rosbag.")
                 continue

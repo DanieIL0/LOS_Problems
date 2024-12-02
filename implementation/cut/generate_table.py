@@ -17,7 +17,8 @@ def collect_segment_info(
     trial_type
 ):
     """
-    Collects information about a video segment and appends it to the segment_info_list.
+    Collects information about a video segment and appends it to the segment_info_list if the segment's
+    timestamp is in ascending order.
 
     Parameters:
         segment_info_list (list): List to store segment information dictionaries.
@@ -87,7 +88,16 @@ def collect_segment_info(
         'Reason': ''
     }
 
-    segment_info_list.append(segment_data)
+    if segment_info_list:
+        last_segment = segment_info_list[-1]
+        last_day = last_segment['Day']
+        last_time_str = last_segment['LOS Issue Start Time']
+        last_datetime_naive = datetime.strptime(f"{last_day} {last_time_str}", '%d/%m/%Y %H:%M:%S')
+        last_datetime = local_tz.localize(last_datetime_naive)
+        if los_issue_start_datetime > last_datetime:
+            segment_info_list.append(segment_data)
+    else:
+        segment_info_list.append(segment_data)
 
 def generate_excel_table(segment_info_list, excel_output_path):
     """
