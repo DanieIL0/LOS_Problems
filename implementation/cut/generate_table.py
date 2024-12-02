@@ -1,5 +1,5 @@
 from openpyxl import load_workbook
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import os
 import pytz
@@ -94,7 +94,7 @@ def collect_segment_info(
         last_time_str = last_segment['LOS Issue Start Time']
         last_datetime_naive = datetime.strptime(f"{last_day} {last_time_str}", '%d/%m/%Y %H:%M:%S')
         last_datetime = local_tz.localize(last_datetime_naive)
-        if los_issue_start_datetime > last_datetime:
+        if los_issue_start_datetime > last_datetime + timedelta(seconds=0.1):
             segment_info_list.append(segment_data)
     else:
         segment_info_list.append(segment_data)
