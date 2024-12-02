@@ -82,6 +82,57 @@ def extract_video_type(filename):
         video_type = 'Unknown'
     return video_type
 
+def get_adjacent_video(current_video_file, grouped_videos, video_dir, video_type, direction='next'):
+    """
+    Gets the adjacent video file in the specified direction for the same video type.
+
+    Parameters:
+        current_video_file (str): Current video file name.
+        grouped_videos (dict): Videos grouped by start time and type.
+        video_dir (str): Directory containing the video files.
+        video_type (str): The type of the current video.
+        direction (str): 'next' or 'previous'.
+
+    Returns:
+        tuple: (adjacent_video_file, start_time, end_time) or None if not found.
+    """
+    current_video_start_time = None
+    for start_time, videos_by_type in grouped_videos.items():
+        if video_type in videos_by_type and current_video_file in videos_by_type[video_type]:
+            current_video_start_time = start_time
+            break
+
+    if current_video_start_time is None:
+        return None
+
+    sorted_times = sorted(grouped_videos.keys())
+    current_index = sorted_times.index(current_video_start_time)
+
+    if direction == 'next' and current_index < len(sorted_times) - 1:
+        adjacent_start_time = sorted_times[current_index + 1]
+    elif direction == 'previous' and current_index > 0:
+        adjacent_start_time = sorted_times[current_index - 1]
+    else:
+        return None
+
+    adjacent_videos_by_type = grouped_videos[adjacent_start_time]
+    adjacent_video_file = None
+    if video_type in adjacent_videos_by_type:
+        adjacent_video_file = adjacent_videos_by_type[video_type][0]
+    else:
+        return None
+
+    video_path = os.path.join(video_dir, adjacent_video_file)
+    try:
+        video_duration, video_start_time = get_video_metadata(video_path)
+    except ValueError as e:
+        logging.error(e)
+        return None
+
+    video_end_time = video_start_time + video_duration
+
+    return adjacent_video_file, video_start_time, video_end_time
+
 
 def correlate_timestamp_with_video(segments, video_start_time, video_duration, video_file, grouped_videos, video_dir, video_type):
     """
@@ -112,7 +163,29 @@ def correlate_timestamp_with_video(segments, video_start_time, video_duration, v
         segment_end_time = end_time + PADDING_SECONDS
         segment_start_time = max(segment_start_time, video_start_time)
         segment_end_time = min(segment_end_time, video_end_time)
+
+        needs_previous_video = segment_start_time < video_start_time
+        needs_next_video = segment_end_time > video_end_time
+
         video_inputs = [(video_file, video_start_time, video_end_time)]
+
+        if needs_previous_video:
+            previous_video_info = get_adjacent_video(video_file, grouped_videos, video_dir, video_type, direction='previous')
+            if previous_video_info:
+                prev_video_file, prev_start_time, prev_end_time = previous_video_info
+                video_inputs.insert(0, (prev_video_file, prev_start_time, prev_end_time))
+                segment_start_time = max(segment_start_time, prev_start_time)
+            else:
+                segment_start_time = video_start_time
+
+        if needs_next_video:
+            next_video_info = get_adjacent_video(video_file, grouped_videos, video_dir, video_type, direction='next')
+            if next_video_info:
+                next_video_file, next_start_time, next_end_time = next_video_info
+                video_inputs.append((next_video_file, next_start_time, next_end_time))
+                segment_end_time = min(segment_end_time, next_end_time)
+            else:
+                segment_end_time = video_end_time
 
         if segment_end_time <= segment_start_time:
             continue
