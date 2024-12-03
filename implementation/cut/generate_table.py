@@ -1,5 +1,5 @@
 from openpyxl import load_workbook
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 import os
 import pytz
@@ -34,6 +34,7 @@ def collect_segment_info(
         pretrial (bool): Indicates if it's a pretrial.
         trial_type (str): The trial type extracted from the directory name.
     """
+    trial_number = str(int(trial_number)) if trial_number.isdigit() else trial_number
     origin_videos_info = []
     for vid_file, vid_start, vid_end in segment_info['video_inputs']:
         origin_videos_info.append({
@@ -42,10 +43,12 @@ def collect_segment_info(
             'vid_end': vid_end
         })
 
+    patterns_to_replace = ['1-LapColor', '3-Room', '4-AtlasAR']
+    pattern_str = '_(?:' + '|'.join(map(re.escape, patterns_to_replace)) + ')'
     origin_videos_set = set()
     for info in origin_videos_info:
         vid_file = info['vid_file']
-        vid_file_cleaned = re.sub(r'_\d+-\*', '-*', vid_file)
+        vid_file_cleaned = re.sub(pattern_str, '*', vid_file)
         origin_videos_set.add(vid_file_cleaned)
     origin_videos_str = '+'.join(sorted(origin_videos_set))
 
@@ -93,26 +96,20 @@ def collect_segment_info(
         'Length of step (mm:ss)': step_length_mmss,
         'Reason': ''
     }
+    date_time_str = f"{segment_data['Day']}_{segment_data['LOS Issue Start Time']}"
 
     duplicate_exists = any(
         (seg['Original Videos'] == segment_data['Original Videos']) and
-        (seg['Segment'] == segment_data['Segment'])
+        (seg['Segment'] == segment_data['Segment']) and
+        (seg['Trial Number'] == segment_data['Trial Number']) and
+        (seg['Length (secs)'] == segment_data['Length (secs)']) and
+        (f"{seg['Day']}_{seg['LOS Issue Start Time']}" == date_time_str)
         for seg in segment_info_list
     )
+
     if duplicate_exists:
         return
-    if segment_info_list:
-        last_segment = segment_info_list[-1]
-        last_day = last_segment['Day']
-        last_time_str = last_segment['LOS Issue Start Time']
-        last_datetime_naive = datetime.strptime(f"{last_day} {last_time_str}", '%d/%m/%Y %H:%M:%S')
-        last_datetime = local_tz.localize(last_datetime_naive)
-        if los_issue_start_datetime > last_datetime + timedelta(seconds=0.5):
-            segment_info_list.append(segment_data)
-        else:
-            return
-    else:
-        segment_info_list.append(segment_data)
+    segment_info_list.append(segment_data)
 
 def generate_excel_table(segment_info_list, excel_output_path):
     """
