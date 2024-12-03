@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import os
 import pytz
+import re
 
 def collect_segment_info(
     segment_info_list,
@@ -17,8 +18,9 @@ def collect_segment_info(
     trial_type
 ):
     """
-    Collects information about a video segment and appends it to the segment_info_list if the segment's
-    timestamp is in ascending order.
+    Collects information about a video segment and appends it to the segment_info_list if:
+    - The segment's timestamp is in ascending order (with a 0.5-second buffer).
+    - The combination of 'Original Videos' and 'Segment' number is unique.
 
     Parameters:
         segment_info_list (list): List to store segment information dictionaries.
@@ -40,8 +42,12 @@ def collect_segment_info(
             'vid_end': vid_end
         })
 
-    origin_videos = [info['vid_file'].replace('Room', '*') for info in origin_videos_info]
-    origin_videos_str = '+'.join(origin_videos)
+    origin_videos_set = set()
+    for info in origin_videos_info:
+        vid_file = info['vid_file']
+        vid_file_cleaned = re.sub(r'_\d+-\*', '-*', vid_file)
+        origin_videos_set.add(vid_file_cleaned)
+    origin_videos_str = '+'.join(sorted(origin_videos_set))
 
     segment_number = segment_index + 1
     local_tz = pytz.timezone('Europe/Berlin')
@@ -88,14 +94,23 @@ def collect_segment_info(
         'Reason': ''
     }
 
+    duplicate_exists = any(
+        (seg['Original Videos'] == segment_data['Original Videos']) and
+        (seg['Segment'] == segment_data['Segment'])
+        for seg in segment_info_list
+    )
+    if duplicate_exists:
+        return
     if segment_info_list:
         last_segment = segment_info_list[-1]
         last_day = last_segment['Day']
         last_time_str = last_segment['LOS Issue Start Time']
         last_datetime_naive = datetime.strptime(f"{last_day} {last_time_str}", '%d/%m/%Y %H:%M:%S')
         last_datetime = local_tz.localize(last_datetime_naive)
-        if los_issue_start_datetime > last_datetime + timedelta(seconds=0.1):
+        if los_issue_start_datetime > last_datetime + timedelta(seconds=0.5):
             segment_info_list.append(segment_data)
+        else:
+            return
     else:
         segment_info_list.append(segment_data)
 
