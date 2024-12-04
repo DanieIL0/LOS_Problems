@@ -449,16 +449,6 @@ def cut_video_segments(
                         logging.error(f"FFmpeg Error for {output_filename}: {e.stderr.decode()}")
                     except Exception as e:
                         logging.error(f"Unexpected error creating video segment {output_filename}: {e}")
-
-    # Delete empty directories
-    for dir_path, has_content in created_directories.items():
-        if not has_content:
-            try:
-                os.rmdir(dir_path)
-                logging.info(f"Deleted empty directory: {dir_path}")
-            except OSError as e:
-                logging.error(f"Error deleting directory {dir_path}: {e}")
-
     if segment_info_list:
         excel_output_path = os.path.join(results_dir, 'segment_info.xlsx')
         generate_excel_table(segment_info_list, excel_output_path)

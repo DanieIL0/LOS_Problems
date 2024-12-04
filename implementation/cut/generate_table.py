@@ -43,7 +43,7 @@ def collect_segment_info(
             'vid_end': vid_end
         })
 
-    patterns_to_replace = ['1-LapColor', '3-Room', '4-AtlasAR']
+    patterns_to_replace = ['1-*', '3-*', '4-*']
     pattern_str = '_(?:' + '|'.join(map(re.escape, patterns_to_replace)) + ')'
     origin_videos_set = set()
     for info in origin_videos_info:
@@ -99,7 +99,6 @@ def collect_segment_info(
     date_time_str = f"{segment_data['Day']}_{segment_data['LOS Issue Start Time']}"
 
     duplicate_exists = any(
-        (seg['Original Videos'] == segment_data['Original Videos']) and
         (seg['Segment'] == segment_data['Segment']) and
         (seg['Trial Number'] == segment_data['Trial Number']) and
         (seg['Length (secs)'] == segment_data['Length (secs)']) and
